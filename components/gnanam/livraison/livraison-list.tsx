@@ -1,0 +1,76 @@
+"use client";
+
+import { useGnanamStore } from "@/lib/gnanam/store";
+import { LIV_STATUS } from "@/lib/gnanam/data";
+import { zonesOf } from "@/lib/gnanam/utils";
+import { SETTINGS } from "@/lib/gnanam/settings";
+
+export function LivraisonList() {
+  const { state, dispatch } = useGnanamStore();
+
+  const deliverable = state.orders.filter((o) => o.status === "ready" || o.status === "delivered");
+  const inPrep = state.orders.filter((o) => o.status === "todo" || o.status === "picking");
+  const stops = [...deliverable, ...inPrep];
+
+  return (
+    <div className="flex-1 overflow-y-auto px-6 pt-5 pb-28">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div>
+          <div className="text-[23px] font-extrabold tracking-tight">Tournée du jour</div>
+          <div className="mt-0.5 text-[13.5px] text-[var(--gnanam-gray-600)]">
+            Chauffeur : K. Sivarajah · Camion FR-482-QN
+          </div>
+        </div>
+        <div className="rounded-full bg-[var(--gnanam-amber-bg)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--gnanam-amber)]">
+          Bientôt synchronisé avec votre TMS
+        </div>
+      </div>
+
+      <div className="mt-4.5 flex max-w-[680px] flex-col gap-3">
+        {stops.map((o, i) => {
+          const [statusLabel, statusBg, statusFg] = LIV_STATUS[o.status];
+          const isDelivered = o.status === "delivered";
+          const numBg = isDelivered ? "var(--gnanam-success)" : o.status === "ready" ? "var(--gnanam-teal-900)" : "var(--gnanam-border)";
+          const numFg = o.status === "ready" || isDelivered ? "var(--gnanam-cream-text)" : "var(--gnanam-gray-600)";
+          const canDeliver = o.status === "ready";
+          return (
+            <div
+              key={o.id}
+              className="flex items-start gap-3.5 rounded-2xl bg-white p-4.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]"
+            >
+              <div
+                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full text-[15px] font-extrabold"
+                style={{ background: numBg, color: numFg }}
+              >
+                {i + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="text-base font-bold">{o.client}</div>
+                  <span
+                    className="rounded-full px-2.5 py-1 text-xs font-bold"
+                    style={{ background: statusBg, color: statusFg }}
+                  >
+                    {statusLabel}
+                  </span>
+                </div>
+                <div className="mt-1 text-[13px] text-[var(--gnanam-gray-600)]">{o.address}</div>
+                <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
+                  {o.id} · {zonesOf(o, SETTINGS.groupByZone).length} caddies · créneau {o.window}
+                </div>
+                {canDeliver && (
+                  <button
+                    onClick={() => dispatch({ type: "OPEN_STOP", id: o.id })}
+                    className="mt-3 rounded-[11px] bg-[var(--gnanam-teal-900)] px-5 py-3 text-sm font-semibold text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-700)]"
+                  >
+                    Démarrer la livraison
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
