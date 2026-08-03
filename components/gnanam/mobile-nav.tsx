@@ -14,7 +14,7 @@ export function MobileNav() {
       <button
         key={id}
         onClick={() => dispatch({ type: "SET_MODULE", module: id })}
-        className={`flex min-h-[52px] flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[11.5px] font-semibold ${
+        className={`flex min-h-[52px] flex-1 flex-col items-center gap-0.5 rounded-xl px-0.5 py-2 text-[11px] font-semibold whitespace-nowrap ${
           active ? "bg-[var(--gnanam-gold)] text-[var(--gnanam-teal-900)]" : "bg-transparent text-[var(--gnanam-muted-teal)]"
         }`}
       >
@@ -32,9 +32,10 @@ export function MobileNav() {
       {navItem("commande", "Commander")}
       {navItem("preparation", "Préparation")}
       {navItem("livraison", "Livraison")}
+      {navItem("stock", "Stock")}
       <button
         onClick={() => dispatch({ type: "LOGOUT" })}
-        className="flex min-h-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl bg-transparent px-2.5 py-2 text-[11.5px] font-semibold text-[var(--gnanam-muted-teal)]"
+        className="flex min-h-[52px] shrink-0 flex-col items-center gap-0.5 rounded-xl bg-transparent px-1.5 py-2 text-[11px] font-semibold whitespace-nowrap text-[var(--gnanam-muted-teal)]"
       >
         <NAV_ICONS.logout size={21} strokeWidth={2} />
         Quitter

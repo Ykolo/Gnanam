@@ -33,9 +33,26 @@ export interface Order {
 }
 
 export type AuthTab = "login" | "register";
-export type ModuleId = "commande" | "preparation" | "livraison";
+export type ModuleId = "commande" | "preparation" | "livraison" | "stock";
 export type PrepView = "list" | "pick";
 export type LivView = "list" | "detail";
+
+/** Mouvement de stock du dépôt, horodaté au fil de l'eau. */
+export type StockMoveKind = "sortie" | "reception" | "ajustement" | "annulation";
+
+export interface StockMove {
+  id: string;
+  pid: string;
+  /** Signé : négatif = sortie de stock, positif = entrée. */
+  delta: number;
+  kind: StockMoveKind;
+  label: string;
+  /** Heure locale « HH:MM » figée au moment du mouvement. */
+  time: string;
+}
+
+export type StockFilter = "all" | "alert" | Zone;
+export type StockLevel = "rupture" | "critique" | "ok";
 
 export interface AppSettings {
   scanEnabled: boolean;
@@ -71,6 +88,13 @@ export interface AppState {
   livView: LivView;
   activeStopId: string | null;
   signed: Record<string, boolean>;
+
+  stockSearch: string;
+  stockFilter: StockFilter;
+  /** Stock physique du dépôt, en colis, par référence produit. */
+  stock: Record<string, number>;
+  stockMoves: StockMove[];
+  moveSeq: number;
 
   orders: Order[];
 }

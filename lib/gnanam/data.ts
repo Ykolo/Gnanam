@@ -1,4 +1,4 @@
-import type { Product, Order, Category, Zone } from "./types";
+import type { Product, Order, Category, Zone, StockMove, StockMoveKind } from "./types";
 
 export const PRODUCTS: Product[] = [
   { id: "p1", name: "Mangue Kent", unit: "Colis 6 kg", price: 24.0, cat: "Fruits & Légumes", zone: "Frais" },
@@ -85,6 +85,50 @@ export const INITIAL_ORDERS: Order[] = [
     status: "delivered",
     lines: makeLines([["p9", 1], ["p12", 2], ["p10", 1]]),
   },
+];
+
+/** Stock physique du dépôt (en colis) et seuil de réappro par référence. */
+export const STOCK_SEED: Record<string, { qty: number; min: number }> = {
+  p1: { qty: 46, min: 12 },
+  p2: { qty: 31, min: 10 },
+  p3: { qty: 18, min: 8 },
+  p4: { qty: 24, min: 8 },
+  p5: { qty: 9, min: 10 },
+  p6: { qty: 4, min: 8 },
+  p7: { qty: 15, min: 6 },
+  p8: { qty: 21, min: 6 },
+  p9: { qty: 62, min: 20 },
+  p10: { qty: 48, min: 18 },
+  p11: { qty: 27, min: 10 },
+  p12: { qty: 33, min: 12 },
+  p13: { qty: 7, min: 10 },
+  p14: { qty: 19, min: 8 },
+  p15: { qty: 12, min: 10 },
+  p16: { qty: 0, min: 6 },
+  p17: { qty: 41, min: 15 },
+  p18: { qty: 36, min: 15 },
+};
+
+export const INITIAL_STOCK: Record<string, number> = Object.fromEntries(
+  Object.entries(STOCK_SEED).map(([pid, s]) => [pid, s.qty])
+);
+
+export function stockMin(pid: string): number {
+  return STOCK_SEED[pid]?.min ?? 0;
+}
+
+export const STOCK_MOVE_LABELS: Record<StockMoveKind, string> = {
+  sortie: "Sortie préparation",
+  reception: "Réception fournisseur",
+  ajustement: "Ajustement inventaire",
+  annulation: "Retour en stock",
+};
+
+/** Historique du début de journée — heures figées pour rester stable au rendu serveur. */
+export const INITIAL_MOVES: StockMove[] = [
+  { id: "m3", pid: "p9", delta: -1, kind: "sortie", time: "07:42", label: "Traiteur Saveurs Lankaises · CMD-1040" },
+  { id: "m2", pid: "p15", delta: -1, kind: "sortie", time: "07:38", label: "Restaurant Le Baobab · CMD-1041" },
+  { id: "m1", pid: "p10", delta: 24, kind: "reception", time: "06:15", label: "Palette fournisseur · BL-8842" },
 ];
 
 export function findProduct(pid: string): Product {

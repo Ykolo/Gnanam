@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
-import type { AppState, ModuleId, PrepView, LivView, Order, OrderLine } from "./types";
-import { INITIAL_ORDERS } from "./data";
+import type { AppState, ModuleId, PrepView, LivView, Order, OrderLine, StockFilter, StockMove, StockMoveKind } from "./types";
+import { INITIAL_ORDERS, INITIAL_STOCK, INITIAL_MOVES } from "./data";
+import { consumedOf } from "./stock";
 
 const initialState: AppState = {
   authed: false,
@@ -32,6 +33,12 @@ const initialState: AppState = {
   livView: "list",
   activeStopId: null,
   signed: {},
+
+  stockSearch: "",
+  stockFilter: "all",
+  stock: INITIAL_STOCK,
+  stockMoves: INITIAL_MOVES,
+  moveSeq: INITIAL_MOVES.length,
 
   orders: INITIAL_ORDERS,
 };
@@ -66,7 +73,11 @@ type Action =
   | { type: "OPEN_STOP"; id: string }
   | { type: "BACK_TO_STOPS" }
   | { type: "TOGGLE_SIGN" }
-  | { type: "CONFIRM_DELIVERY" };
+  | { type: "CONFIRM_DELIVERY" }
+  | { type: "SET_STOCK_SEARCH"; value: string }
+  | { type: "SET_STOCK_FILTER"; filter: StockFilter }
+  | { type: "RECEIVE_STOCK"; pid: string; qty: number }
+  | { type: "ADJUST_STOCK"; pid: string; delta: number };
 
 function updOrder(orders: Order[], id: string, fn: (o: Order) => Order): Order[] {
   return orders.map((o) => (o.id === id ? fn(o) : o));
@@ -77,6 +88,56 @@ function updLine(orders: Order[], orderId: string, idx: number, fn: (l: OrderLin
     ...o,
     lines: o.lines.map((l, i) => (i === idx ? fn(l) : l)),
   }));
+}
+
+/** Nombre de mouvements conservés dans le journal temps réel. */
+const MAX_MOVES = 40;
+
+function nowLabel(): string {
+  return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Applique une variation de stock et l'inscrit en tête du journal des mouvements. */
+function applyMove(
+  state: AppState,
+  move: { pid: string; delta: number; kind: StockMoveKind; label: string },
+  orders?: Order[]
+): AppState {
+  const seq = state.moveSeq + 1;
+  const entry: StockMove = { id: "m" + seq, time: nowLabel(), ...move };
+  return {
+    ...state,
+    orders: orders ?? state.orders,
+    stock: { ...state.stock, [move.pid]: Math.max(0, (state.stock[move.pid] ?? 0) + move.delta) },
+    stockMoves: [entry, ...state.stockMoves].slice(0, MAX_MOVES),
+    moveSeq: seq,
+  };
+}
+
+/**
+ * Met à jour une ligne de commande et répercute en temps réel sur le stock du dépôt
+ * la marchandise qui vient d'être prélevée (ou remise en rayon).
+ */
+function applyLine(state: AppState, orderId: string, idx: number, fn: (l: OrderLine) => OrderLine): AppState {
+  const order = state.orders.find((o) => o.id === orderId);
+  const before = order?.lines[idx];
+  if (!order || !before) return state;
+
+  const after = fn(before);
+  const orders = updLine(state.orders, orderId, idx, () => after);
+  const out = consumedOf(after) - consumedOf(before);
+  if (out === 0) return { ...state, orders };
+
+  return applyMove(
+    state,
+    {
+      pid: after.pid,
+      delta: -out,
+      kind: out > 0 ? "sortie" : "annulation",
+      label: `${order.client} · ${order.id}`,
+    },
+    orders
+  );
 }
 
 function reducer(state: AppState, action: Action): AppState {
@@ -161,49 +222,39 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, prepView: "list", flagOpen: null };
     case "TOGGLE_LINE":
       return {
-        ...state,
-        flagOpen: null,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({
+        ...applyLine(state, action.orderId, action.idx, (l) => ({
           ...l,
           status: l.status === "done" ? "pending" : "done",
           picked: l.qty,
         })),
+        flagOpen: null,
       };
     case "SET_LINE_PARTIAL":
       return {
-        ...state,
-        flagOpen: null,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({
+        ...applyLine(state, action.orderId, action.idx, (l) => ({
           ...l,
           status: "partial",
           picked: Math.max(1, l.qty - 1),
         })),
+        flagOpen: null,
       };
     case "SET_LINE_MISSING":
       return {
-        ...state,
+        ...applyLine(state, action.orderId, action.idx, (l) => ({ ...l, status: "missing", picked: 0 })),
         flagOpen: null,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({ ...l, status: "missing", picked: 0 })),
       };
     case "RESET_LINE":
       return {
-        ...state,
+        ...applyLine(state, action.orderId, action.idx, (l) => ({ ...l, status: "pending", picked: l.qty })),
         flagOpen: null,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({ ...l, status: "pending", picked: l.qty })),
       };
     case "INC_PICKED":
-      return {
-        ...state,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({
-          ...l,
-          picked: Math.min(l.qty - 1, l.picked + 1),
-        })),
-      };
+      return applyLine(state, action.orderId, action.idx, (l) => ({
+        ...l,
+        picked: Math.min(l.qty - 1, l.picked + 1),
+      }));
     case "DEC_PICKED":
-      return {
-        ...state,
-        orders: updLine(state.orders, action.orderId, action.idx, (l) => ({ ...l, picked: Math.max(0, l.picked - 1) })),
-      };
+      return applyLine(state, action.orderId, action.idx, (l) => ({ ...l, picked: Math.max(0, l.picked - 1) }));
     case "TOGGLE_FLAG":
       return { ...state, flagOpen: state.flagOpen === action.key ? null : action.key };
     case "FINISH_ORDER":
@@ -229,6 +280,29 @@ function reducer(state: AppState, action: Action): AppState {
         orders: updOrder(state.orders, state.activeStopId, (o) => ({ ...o, status: "delivered" })),
         livView: "list",
       };
+    }
+    case "SET_STOCK_SEARCH":
+      return { ...state, stockSearch: action.value };
+    case "SET_STOCK_FILTER":
+      return { ...state, stockFilter: action.filter };
+    case "RECEIVE_STOCK": {
+      if (action.qty <= 0) return state;
+      return applyMove(state, {
+        pid: action.pid,
+        delta: action.qty,
+        kind: "reception",
+        label: "Réception dépôt · saisie manuelle",
+      });
+    }
+    case "ADJUST_STOCK": {
+      if (action.delta === 0) return state;
+      if (action.delta < 0 && (state.stock[action.pid] ?? 0) === 0) return state;
+      return applyMove(state, {
+        pid: action.pid,
+        delta: action.delta,
+        kind: "ajustement",
+        label: action.delta > 0 ? "Correction inventaire (+)" : "Correction inventaire (−)",
+      });
     }
     default:
       return state;

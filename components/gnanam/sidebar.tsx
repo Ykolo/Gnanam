@@ -1,6 +1,7 @@
 "use client";
 
 import { useGnanamStore } from "@/lib/gnanam/store";
+import { stockRows } from "@/lib/gnanam/stock";
 import { initialsOf } from "@/lib/gnanam/utils";
 import { NAV_ICONS } from "./nav-icons";
 import type { ModuleId } from "@/lib/gnanam/types";
@@ -10,6 +11,7 @@ export function Sidebar() {
 
   const prepBadge = state.orders.filter((o) => o.status === "todo" || o.status === "picking").length;
   const livBadge = state.orders.filter((o) => o.status === "ready").length;
+  const stockBadge = stockRows(state.stock, state.orders).filter((r) => r.level !== "ok").length;
 
   const navItem = (id: ModuleId, label: string, badge: number) => {
     const Icon = NAV_ICONS[id];
@@ -51,6 +53,7 @@ export function Sidebar() {
       {navItem("commande", "Commander", 0)}
       {navItem("preparation", "Préparation", prepBadge)}
       {navItem("livraison", "Livraison", livBadge)}
+      {navItem("stock", "Stock dépôt", stockBadge)}
 
       <div className="mt-auto flex flex-col gap-2.5">
         <div className="rounded-[10px] bg-[var(--gnanam-teal-800)] p-3 text-xs leading-relaxed text-[var(--gnanam-muted-teal)]">

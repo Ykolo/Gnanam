@@ -8,6 +8,7 @@ import { MobileNav } from "./mobile-nav";
 import { CommandeModule } from "./commande/commande-module";
 import { PreparationModule } from "./preparation/preparation-module";
 import { LivraisonModule } from "./livraison/livraison-module";
+import { StockModule } from "./stock/stock-module";
 
 export function GnanamApp() {
   const { state } = useGnanamStore();
@@ -23,6 +24,7 @@ export function GnanamApp() {
         {state.module === "commande" && <CommandeModule />}
         {state.module === "preparation" && <PreparationModule />}
         {state.module === "livraison" && <LivraisonModule />}
+        {state.module === "stock" && <StockModule />}
       </div>
 
       {!isDesktop && <MobileNav />}
