@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useGnanamStore } from "@/lib/gnanam/store";
+import { ROLES, ROLE_IDS } from "@/lib/gnanam/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,6 +82,31 @@ export function AuthScreen() {
                   dispatch({ type: "LOGIN" });
                 }}
               >
+                <div>
+                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
+                    Profil
+                  </Label>
+                  <div className="grid grid-cols-2 gap-[7px]">
+                    {ROLE_IDS.map((id) => {
+                      const active = state.role === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => dispatch({ type: "SET_ROLE", role: id })}
+                          aria-pressed={active}
+                          className={`min-h-11 rounded-[11px] border-[1.5px] px-2.5 py-2.5 text-left text-[13px] font-bold transition-colors ${
+                            active
+                              ? "border-[var(--gnanam-teal-900)] bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)]"
+                              : "border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] text-[var(--gnanam-gray-600)]"
+                          }`}
+                        >
+                          {ROLES[id].label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div>
                   <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
                     Adresse e-mail professionnelle

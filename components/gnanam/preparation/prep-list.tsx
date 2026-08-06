@@ -2,7 +2,7 @@
 
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { PREP_STATUS } from "@/lib/gnanam/data";
-import { zonesOf, todayLabel } from "@/lib/gnanam/utils";
+import { zonesOf, todayLabel, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 
 export function PrepList() {
@@ -32,7 +32,8 @@ export function PrepList() {
                 <div className="min-w-[160px] flex-1">
                   <div className="text-base font-bold">{o.client}</div>
                   <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
-                    {o.id} · {o.lines.length} lignes · {zonesOf(o, SETTINGS.groupByZone).length} caddies
+                    {o.id} · {plural(o.lines.length, "ligne")} ·{" "}
+                    {plural(zonesOf(o, SETTINGS.groupByZone).length, "caddie")}
                   </div>
                 </div>
                 <span

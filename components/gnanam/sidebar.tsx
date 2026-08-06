@@ -1,7 +1,8 @@
 "use client";
 
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { stockRows } from "@/lib/gnanam/stock";
+import { MODULE_LABELS, ROLES } from "@/lib/gnanam/data";
+import { moduleBadge, modulesOf } from "@/lib/gnanam/nav";
 import { initialsOf } from "@/lib/gnanam/utils";
 import { NAV_ICONS } from "./nav-icons";
 import type { ModuleId } from "@/lib/gnanam/types";
@@ -9,13 +10,10 @@ import type { ModuleId } from "@/lib/gnanam/types";
 export function Sidebar() {
   const { state, dispatch } = useGnanamStore();
 
-  const prepBadge = state.orders.filter((o) => o.status === "todo" || o.status === "picking").length;
-  const livBadge = state.orders.filter((o) => o.status === "ready").length;
-  const stockBadge = stockRows(state.stock, state.orders).filter((r) => r.level !== "ok").length;
-
-  const navItem = (id: ModuleId, label: string, badge: number) => {
+  const navItem = (id: ModuleId) => {
     const Icon = NAV_ICONS[id];
     const active = state.module === id;
+    const badge = moduleBadge(state, id);
     return (
       <button
         key={id}
@@ -24,8 +22,8 @@ export function Sidebar() {
           active ? "bg-[var(--gnanam-gold)] text-[var(--gnanam-teal-900)]" : "bg-transparent text-[var(--gnanam-muted-teal)]"
         }`}
       >
-        <Icon size={20} strokeWidth={2} />
-        {label}
+        <Icon size={20} strokeWidth={2} className="shrink-0" />
+        {MODULE_LABELS[id]}
         {badge > 0 && (
           <span className="ml-auto rounded-full bg-[var(--gnanam-gold)] px-2 py-0.5 text-xs font-bold text-[var(--gnanam-teal-900)]">
             {badge}
@@ -50,10 +48,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {navItem("commande", "Commander", 0)}
-      {navItem("preparation", "Préparation", prepBadge)}
-      {navItem("livraison", "Livraison", livBadge)}
-      {navItem("stock", "Stock dépôt", stockBadge)}
+      {modulesOf(state).map(navItem)}
 
       <div className="mt-auto flex flex-col gap-2.5">
         <div className="rounded-[10px] bg-[var(--gnanam-teal-800)] p-3 text-xs leading-relaxed text-[var(--gnanam-muted-teal)]">
@@ -66,7 +61,7 @@ export function Sidebar() {
           </div>
           <div className="min-w-0 flex-1 text-xs leading-tight">
             <div className="truncate font-bold text-[#EDE6D6]">{state.userName}</div>
-            <div className="text-[var(--gnanam-muted-teal)]">Connecté</div>
+            <div className="text-[var(--gnanam-muted-teal)]">{ROLES[state.role].label}</div>
           </div>
           <button
             onClick={() => dispatch({ type: "LOGOUT" })}
