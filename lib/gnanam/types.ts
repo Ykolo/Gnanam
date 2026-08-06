@@ -23,6 +23,13 @@ export interface OrderLine {
 
 export type OrderStatus = "todo" | "picking" | "ready" | "delivered";
 
+/** Visa du poste sécurité, apposé quand le caddie est autorisé à sortir. */
+export interface SecurityClearance {
+  /** Heure locale « HH:MM » de la validation. */
+  at: string;
+  agent: string;
+}
+
 export interface Order {
   id: string;
   client: string;
@@ -30,12 +37,24 @@ export interface Order {
   window: string;
   status: OrderStatus;
   lines: OrderLine[];
+  security?: SecurityClearance;
 }
 
 export type AuthTab = "login" | "register";
-export type ModuleId = "commande" | "preparation" | "livraison" | "stock";
+export type ModuleId = "commande" | "preparation" | "securite" | "livraison" | "stock" | "rapports";
 export type PrepView = "list" | "pick";
 export type LivView = "list" | "detail";
+export type SecView = "list" | "check";
+export type RepPeriod = "jour" | "semaine" | "mois";
+
+export type RoleId = "client" | "entrepot" | "securite" | "admin";
+
+/** Profil de connexion : détermine l'identité affichée et les modules accessibles. */
+export interface Role {
+  label: string;
+  user: string;
+  modules: ModuleId[];
+}
 
 /** Mouvement de stock du dépôt, horodaté au fil de l'eau. */
 export type StockMoveKind = "sortie" | "reception" | "ajustement" | "annulation";
@@ -61,6 +80,7 @@ export interface AppSettings {
 }
 
 export interface AppState {
+  role: RoleId;
   authed: boolean;
   authTab: AuthTab;
   authEmail: string;
@@ -88,6 +108,14 @@ export interface AppState {
   livView: LivView;
   activeStopId: string | null;
   signed: Record<string, boolean>;
+
+  secView: SecView;
+  secOrderId: string | null;
+  /** Lignes cochées au contrôle sortie, indexées « idCommande-indexLigne ». */
+  secChecked: Record<string, boolean>;
+  secSearch: string;
+
+  repPeriod: RepPeriod;
 
   stockSearch: string;
   stockFilter: StockFilter;

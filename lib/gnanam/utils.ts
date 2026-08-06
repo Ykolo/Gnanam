@@ -5,6 +5,11 @@ export function eur(n: number): string {
   return n.toFixed(2).replace(".", ",") + " €";
 }
 
+/** « 1 caddie » / « 3 caddies » — accord simple du nom qui suit le compte. */
+export function plural(n: number, word: string): string {
+  return `${n} ${word}${n > 1 ? "s" : ""}`;
+}
+
 export function normalize(text: string): string {
   return text
     .toLowerCase()

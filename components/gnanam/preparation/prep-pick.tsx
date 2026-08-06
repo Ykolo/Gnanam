@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Check, ScanLine, Minus, Plus, MoreHorizontal } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { findProduct, ZONE_COLORS, ZONE_LABELS } from "@/lib/gnanam/data";
-import { zonesOf, eur } from "@/lib/gnanam/utils";
+import { zonesOf, eur, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 import { useIsDesktop } from "@/lib/gnanam/use-is-desktop";
 import type { Order, OrderLine, Zone } from "@/lib/gnanam/types";
@@ -148,7 +148,7 @@ export function PrepPick() {
           <div className="min-w-0 flex-1">
             <div className="text-[17px] font-bold">{order.client}</div>
             <div className="text-[12.5px] text-[var(--gnanam-muted-teal)]">
-              {order.id} · {groups.length} caddies à constituer
+              {order.id} · {plural(groups.length, "caddie")} à constituer
             </div>
           </div>
           {SETTINGS.scanEnabled && (

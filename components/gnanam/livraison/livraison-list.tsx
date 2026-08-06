@@ -2,7 +2,7 @@
 
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { LIV_STATUS } from "@/lib/gnanam/data";
-import { zonesOf } from "@/lib/gnanam/utils";
+import { zonesOf, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 
 export function LivraisonList() {
@@ -56,7 +56,7 @@ export function LivraisonList() {
                 </div>
                 <div className="mt-1 text-[13px] text-[var(--gnanam-gray-600)]">{o.address}</div>
                 <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
-                  {o.id} · {zonesOf(o, SETTINGS.groupByZone).length} caddies · créneau {o.window}
+                  {o.id} · {plural(zonesOf(o, SETTINGS.groupByZone).length, "caddie")} · créneau {o.window}
                 </div>
                 {canDeliver && (
                   <button

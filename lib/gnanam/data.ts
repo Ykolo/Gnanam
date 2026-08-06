@@ -1,4 +1,36 @@
-import type { Product, Order, Category, Zone, StockMove, StockMoveKind } from "./types";
+import type { Product, Order, Category, Zone, StockMove, StockMoveKind, Role, RoleId, ModuleId } from "./types";
+
+export const ROLES: Record<RoleId, Role> = {
+  client: { label: "Client B2B", user: "Épicerie Mont Kailash", modules: ["commande"] },
+  entrepot: { label: "Entrepôt", user: "Préparateur — Rungis", modules: ["preparation", "stock", "livraison"] },
+  securite: { label: "Sécurité", user: "Agent sécurité — sortie A", modules: ["securite"] },
+  admin: {
+    label: "Admin",
+    user: "Direction GNANAM EXO",
+    modules: ["commande", "preparation", "securite", "livraison", "stock", "rapports"],
+  },
+};
+
+export const ROLE_IDS = Object.keys(ROLES) as RoleId[];
+
+export const MODULE_LABELS: Record<ModuleId, string> = {
+  commande: "Commander",
+  preparation: "Préparation",
+  securite: "Contrôle sortie",
+  livraison: "Livraison",
+  stock: "Stock dépôt",
+  rapports: "Rapports",
+};
+
+/** Libellés compacts pour la barre de navigation mobile. */
+export const MODULE_SHORT_LABELS: Record<ModuleId, string> = {
+  commande: "Commander",
+  preparation: "Prépa",
+  securite: "Sortie",
+  livraison: "Livraison",
+  stock: "Stock",
+  rapports: "Rapports",
+};
 
 export const PRODUCTS: Product[] = [
   { id: "p1", name: "Mangue Kent", unit: "Colis 6 kg", price: 24.0, cat: "Fruits & Légumes", zone: "Frais" },

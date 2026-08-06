@@ -1,11 +1,24 @@
 "use client";
 
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
-import type { AppState, ModuleId, PrepView, LivView, Order, OrderLine, StockFilter, StockMove, StockMoveKind } from "./types";
-import { INITIAL_ORDERS, INITIAL_STOCK, INITIAL_MOVES } from "./data";
+import type {
+  AppState,
+  ModuleId,
+  PrepView,
+  LivView,
+  Order,
+  OrderLine,
+  RepPeriod,
+  RoleId,
+  StockFilter,
+  StockMove,
+  StockMoveKind,
+} from "./types";
+import { INITIAL_ORDERS, INITIAL_STOCK, INITIAL_MOVES, ROLES } from "./data";
 import { consumedOf } from "./stock";
 
 const initialState: AppState = {
+  role: "admin",
   authed: false,
   authTab: "login",
   authEmail: "",
@@ -34,6 +47,13 @@ const initialState: AppState = {
   activeStopId: null,
   signed: {},
 
+  secView: "list",
+  secOrderId: null,
+  secChecked: {},
+  secSearch: "",
+
+  repPeriod: "jour",
+
   stockSearch: "",
   stockFilter: "all",
   stock: INITIAL_STOCK,
@@ -44,6 +64,7 @@ const initialState: AppState = {
 };
 
 type Action =
+  | { type: "SET_ROLE"; role: RoleId }
   | { type: "SET_AUTH_TAB"; tab: "login" | "register" }
   | { type: "SET_FIELD"; field: "authEmail" | "authPass" | "regName" | "regSiret" | "regEmail" | "regPass" | "search"; value: string }
   | { type: "LOGIN" }
@@ -74,6 +95,12 @@ type Action =
   | { type: "BACK_TO_STOPS" }
   | { type: "TOGGLE_SIGN" }
   | { type: "CONFIRM_DELIVERY" }
+  | { type: "SET_SEC_SEARCH"; value: string }
+  | { type: "OPEN_SEC_ORDER"; id: string }
+  | { type: "BACK_TO_SEC_LIST" }
+  | { type: "TOGGLE_SEC_LINE"; key: string }
+  | { type: "RELEASE_SEC_ORDER" }
+  | { type: "SET_REP_PERIOD"; period: RepPeriod }
   | { type: "SET_STOCK_SEARCH"; value: string }
   | { type: "SET_STOCK_FILTER"; filter: StockFilter }
   | { type: "RECEIVE_STOCK"; pid: string; qty: number }
@@ -142,6 +169,8 @@ function applyLine(state: AppState, orderId: string, idx: number, fn: (l: OrderL
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
+    case "SET_ROLE":
+      return { ...state, role: action.role };
     case "SET_AUTH_TAB":
       return { ...state, authTab: action.tab, authError: null };
     case "SET_FIELD":
@@ -150,13 +179,29 @@ function reducer(state: AppState, action: Action): AppState {
       if (!state.authEmail || !state.authPass) {
         return { ...state, authError: "Veuillez saisir votre e-mail et votre mot de passe." };
       }
-      return { ...state, authed: true, authError: null, authPass: "", module: "commande" };
+      const role = ROLES[state.role];
+      return {
+        ...state,
+        authed: true,
+        authError: null,
+        authPass: "",
+        module: role.modules[0],
+        userName: role.user,
+      };
     }
     case "REGISTER": {
       if (!state.regName || !state.regEmail || !state.regPass) {
         return { ...state, authError: "Veuillez remplir tous les champs obligatoires." };
       }
-      return { ...state, authed: true, authError: null, userName: state.regName, regPass: "", module: "commande" };
+      return {
+        ...state,
+        authed: true,
+        authError: null,
+        userName: state.regName,
+        regPass: "",
+        role: "client",
+        module: "commande",
+      };
     }
     case "LOGOUT":
       return {
@@ -168,6 +213,7 @@ function reducer(state: AppState, action: Action): AppState {
         module: "commande",
         prepView: "list",
         livView: "list",
+        secView: "list",
         orderSent: false,
       };
     case "SET_MODULE":
@@ -281,6 +327,25 @@ function reducer(state: AppState, action: Action): AppState {
         livView: "list",
       };
     }
+    case "SET_SEC_SEARCH":
+      return { ...state, secSearch: action.value };
+    case "OPEN_SEC_ORDER":
+      return { ...state, secView: "check", secOrderId: action.id };
+    case "BACK_TO_SEC_LIST":
+      return { ...state, secView: "list" };
+    case "TOGGLE_SEC_LINE":
+      return { ...state, secChecked: { ...state.secChecked, [action.key]: !state.secChecked[action.key] } };
+    case "RELEASE_SEC_ORDER": {
+      if (!state.secOrderId) return state;
+      const clearance = { at: nowLabel(), agent: state.userName };
+      return {
+        ...state,
+        orders: updOrder(state.orders, state.secOrderId, (o) => ({ ...o, security: clearance })),
+        secView: "list",
+      };
+    }
+    case "SET_REP_PERIOD":
+      return { ...state, repPeriod: action.period };
     case "SET_STOCK_SEARCH":
       return { ...state, stockSearch: action.value };
     case "SET_STOCK_FILTER":
