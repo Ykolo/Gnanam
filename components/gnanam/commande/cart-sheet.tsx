@@ -4,8 +4,9 @@ import { useMemo } from "react";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { CAT_COLORS, findProduct } from "@/lib/gnanam/data";
-import { eur, initialsOf } from "@/lib/gnanam/utils";
+import { findProduct } from "@/lib/gnanam/data";
+import { eur } from "@/lib/gnanam/utils";
+import { ProductImage } from "@/components/gnanam/product-image";
 
 export function CartSheet() {
   const { state, dispatch } = useGnanamStore();
@@ -37,18 +38,17 @@ export function CartSheet() {
               <div className="flex flex-col gap-2.5">
                 {cartEntries.map(([pid, qty]) => {
                   const p = findProduct(pid);
-                  const [tileBg, tileFg] = CAT_COLORS[p.cat];
                   return (
                     <div
                       key={pid}
                       className="flex items-center gap-3 rounded-[13px] border border-[var(--gnanam-border-softer)] p-2.5 px-3"
                     >
-                      <div
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[11px] text-[15px] font-extrabold"
-                        style={{ background: tileBg, color: tileFg }}
-                      >
-                        {initialsOf(p.name)}
-                      </div>
+                      <ProductImage
+                        product={p}
+                        sizes="44px"
+                        className="h-11 w-11 shrink-0 rounded-[11px]"
+                        fallbackClass="text-[15px]"
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[13.5px] leading-tight font-bold">{p.name}</div>
                         <div className="mt-0.5 text-xs text-[var(--gnanam-gray-400)]">
