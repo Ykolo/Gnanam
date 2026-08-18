@@ -1,0 +1,31 @@
+# p5 — Patate douce rouge
+
+- **Catégorie** : Fruits & Légumes
+- **Fond** : `#EAF4EC`
+- **Fichier de sortie** : `public/produits/p5.webp`
+
+## Prompt complet (à coller tel quel dans Gemini)
+
+```
+Photographie produit e-commerce B2B, sur fond uni #EAF4EC (couleur plate, aucun dégradé, aucune texture).
+Sujet : un colis carton ouvert de patates douces à peau rouge-violacée, une coupée en deux révélant la chair orange vif.
+Cadrage : vue 3/4 légèrement en plongée, sujet centré et entier, occupant environ 80 % du cadre, marge régulière autour.
+Lumière : studio douce et diffuse, ombre portée courte sous le produit, couleurs naturelles et appétissantes, netteté sur toute la profondeur.
+Interdits : aucun texte, aucun logo, aucune marque, aucune écriture sur les emballages, aucune main, aucune personne, aucun accessoire décoratif, aucun cadre ni bordure.
+Format carré 1:1, rendu photoréaliste haute définition.
+Une seule image, un seul produit.
+```
+
+## Ligne courte (si le cadrage de série a déjà été envoyé)
+
+```
+FOND : #EAF4EC — SUJET : un colis carton ouvert de patates douces à peau rouge-violacée, une coupée en deux révélant la chair orange vif
+```
+
+## Cohérence de série
+
+À partir de la 2ᵉ image, joindre `p1.webp` et ajouter en fin de prompt :
+
+```
+Garde exactement le même style photo, le même cadrage et la même lumière que l'image jointe.
+```
