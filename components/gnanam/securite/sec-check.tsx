@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
+import { useSession } from "@/lib/gnanam/session";
 import { findProduct } from "@/lib/gnanam/data";
 import { zonesOf } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
@@ -10,6 +11,7 @@ import { useIsDesktop } from "@/lib/gnanam/use-is-desktop";
 
 export function SecCheck() {
   const { state, dispatch } = useGnanamStore();
+  const session = useSession();
   const isDesktop = useIsDesktop();
   const order = state.orders.find((o) => o.id === state.secOrderId);
   if (!order) return null;
@@ -107,7 +109,7 @@ export function SecCheck() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            onClick={() => dispatch({ type: "RELEASE_SEC_ORDER" })}
+            onClick={() => dispatch({ type: "RELEASE_SEC_ORDER", agent: session.name })}
             className="pointer-events-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-2xl bg-[var(--gnanam-success)] py-4.5 text-[16.5px] font-bold text-white shadow-[0_14px_34px_rgba(46,125,79,.4)] hover:bg-[var(--gnanam-success-hover)]"
           >
             <ShieldCheck size={21} strokeWidth={2.6} />

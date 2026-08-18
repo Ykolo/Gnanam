@@ -1,10 +1,10 @@
-import type { AppState, ModuleId } from "./types";
+import type { AppState, ModuleId, RoleId } from "./types";
 import { ROLES } from "./data";
 import { stockRows } from "./stock";
 
 /** Modules accessibles au profil connecté, dans l'ordre du menu. */
-export function modulesOf(state: AppState): ModuleId[] {
-  return ROLES[state.role].modules;
+export function modulesOf(role: RoleId): ModuleId[] {
+  return ROLES[role].modules;
 }
 
 /** Pastille du menu : nombre d'éléments en attente pour le module. */

@@ -1,18 +1,99 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { useGnanamStore } from "@/lib/gnanam/store";
+import { authClient } from "@/lib/auth-client";
+import { api } from "@/lib/trpc/client";
 import { ROLES, ROLE_IDS } from "@/lib/gnanam/data";
+import type { RoleId } from "@/lib/gnanam/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function AuthScreen() {
-  const { state, dispatch } = useGnanamStore();
+const FIELD =
+  "h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0";
+const LABEL = "mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]";
 
-  const set = (field: "authEmail" | "authPass" | "regName" | "regSiret" | "regEmail" | "regPass") =>
-    (e: React.ChangeEvent<HTMLInputElement>) =>
-      dispatch({ type: "SET_FIELD", field, value: e.target.value });
+/** Comptes créés par `bun run db:seed`, proposés en un clic pour la démonstration. */
+const DEMO_PASSWORD = "gnanam2026";
+const demoEmail = (role: RoleId) => `${role}@gnanam.test`;
+
+export function AuthScreen() {
+  const router = useRouter();
+  const [tab, setTab] = useState<"login" | "register">("login");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [regName, setRegName] = useState("");
+  const [regSiret, setRegSiret] = useState("");
+  const [regAddress, setRegAddress] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPass, setRegPass] = useState("");
+
+  const completeRegistration = api.account.completeRegistration.useMutation();
+
+  const switchTab = (next: "login" | "register") => {
+    setTab(next);
+    setError(null);
+  };
+
+  const fillDemo = (role: RoleId) => {
+    setEmail(demoEmail(role));
+    setPassword(DEMO_PASSWORD);
+    setError(null);
+  };
+
+  async function onLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) return setError("Veuillez saisir votre e-mail et votre mot de passe.");
+
+    setPending(true);
+    setError(null);
+    const { error: authError } = await authClient.signIn.email({ email, password });
+    if (authError) {
+      setPending(false);
+      return setError("E-mail ou mot de passe incorrect.");
+    }
+    router.refresh();
+  }
+
+  async function onRegister(e: React.FormEvent) {
+    e.preventDefault();
+    if (!regName || !regSiret || !regAddress || !regEmail || !regPass) {
+      return setError("Veuillez remplir tous les champs.");
+    }
+    if (regPass.length < 8) return setError("Le mot de passe doit faire au moins 8 caractères.");
+
+    setPending(true);
+    setError(null);
+
+    const { error: authError } = await authClient.signUp.email({
+      email: regEmail,
+      password: regPass,
+      name: regName,
+    });
+    if (authError) {
+      setPending(false);
+      return setError(
+        authError.status === 422
+          ? "Un compte existe déjà pour cette adresse."
+          : "La création du compte a échoué. Réessayez."
+      );
+    }
+
+    // Le compte existe et la session est ouverte : on y rattache l'établissement.
+    try {
+      await completeRegistration.mutateAsync({ siret: regSiret, address: regAddress });
+    } catch (err) {
+      setPending(false);
+      return setError(err instanceof Error ? err.message : "Rattachement de l'établissement impossible.");
+    }
+    router.refresh();
+  }
 
   return (
     <div
@@ -46,184 +127,188 @@ export function AuthScreen() {
 
         <div className="rounded-[20px] bg-white p-6 pb-7 shadow-[0_24px_60px_rgba(0,0,0,.35)]">
           <div className="mb-5 flex gap-1 rounded-xl bg-[var(--gnanam-cream)] p-1">
-            <Button
-              type="button"
-              onClick={() => dispatch({ type: "SET_AUTH_TAB", tab: "login" })}
-              className={`h-11 flex-1 rounded-[9px] text-sm font-bold ${
-                state.authTab === "login"
-                  ? "bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-900)]"
-                  : "bg-transparent text-[var(--gnanam-gray-600)] hover:bg-transparent"
-              }`}
-            >
-              Connexion
-            </Button>
-            <Button
-              type="button"
-              onClick={() => dispatch({ type: "SET_AUTH_TAB", tab: "register" })}
-              className={`h-11 flex-1 rounded-[9px] text-sm font-bold ${
-                state.authTab === "register"
-                  ? "bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-900)]"
-                  : "bg-transparent text-[var(--gnanam-gray-600)] hover:bg-transparent"
-              }`}
-            >
-              Créer un compte
-            </Button>
+            {(["login", "register"] as const).map((id) => (
+              <Button
+                key={id}
+                type="button"
+                onClick={() => switchTab(id)}
+                className={`h-11 flex-1 rounded-[9px] text-sm font-bold ${
+                  tab === id
+                    ? "bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-900)]"
+                    : "bg-transparent text-[var(--gnanam-gray-600)] hover:bg-transparent"
+                }`}
+              >
+                {id === "login" ? "Connexion" : "Créer un compte"}
+              </Button>
+            ))}
           </div>
 
-          {state.authTab === "login" ? (
-              <motion.form
-                key="login"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.15 }}
-                className="flex flex-col gap-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  dispatch({ type: "LOGIN" });
-                }}
+          {tab === "login" ? (
+            <motion.form
+              key="login"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-col gap-3"
+              onSubmit={onLogin}
+            >
+              <div>
+                <Label className={LABEL}>Comptes de démonstration</Label>
+                <div className="grid grid-cols-2 gap-[7px]">
+                  {ROLE_IDS.map((id) => {
+                    const active = email === demoEmail(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => fillDemo(id)}
+                        aria-pressed={active}
+                        className={`min-h-11 rounded-[11px] border-[1.5px] px-2.5 py-2.5 text-left text-[13px] font-bold transition-colors ${
+                          active
+                            ? "border-[var(--gnanam-teal-900)] bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)]"
+                            : "border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] text-[var(--gnanam-gray-600)]"
+                        }`}
+                      >
+                        {ROLES[id].label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="login-email">
+                  Adresse e-mail professionnelle
+                </Label>
+                <Input
+                  id="login-email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="contact@monepicerie.fr"
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="login-password">
+                  Mot de passe
+                </Label>
+                <Input
+                  id="login-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  className={FIELD}
+                />
+              </div>
+              {error && (
+                <div className="rounded-[10px] bg-[var(--gnanam-error-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--gnanam-error)]">
+                  {error}
+                </div>
+              )}
+              <Button
+                type="submit"
+                disabled={pending}
+                className="mt-1 h-[50px] rounded-xl bg-[var(--gnanam-teal-900)] text-[15.5px] font-bold text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-700)] disabled:opacity-70"
               >
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Profil
-                  </Label>
-                  <div className="grid grid-cols-2 gap-[7px]">
-                    {ROLE_IDS.map((id) => {
-                      const active = state.role === id;
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => dispatch({ type: "SET_ROLE", role: id })}
-                          aria-pressed={active}
-                          className={`min-h-11 rounded-[11px] border-[1.5px] px-2.5 py-2.5 text-left text-[13px] font-bold transition-colors ${
-                            active
-                              ? "border-[var(--gnanam-teal-900)] bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)]"
-                              : "border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] text-[var(--gnanam-gray-600)]"
-                          }`}
-                        >
-                          {ROLES[id].label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {pending ? "Connexion…" : "Se connecter"}
+              </Button>
+            </motion.form>
+          ) : (
+            <motion.form
+              key="register"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-col gap-3"
+              onSubmit={onRegister}
+            >
+              <div>
+                <Label className={LABEL} htmlFor="reg-name">
+                  Nom de l&apos;établissement
+                </Label>
+                <Input
+                  id="reg-name"
+                  value={regName}
+                  onChange={(e) => setRegName(e.target.value)}
+                  type="text"
+                  placeholder="Épicerie Mont Kailash"
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="reg-siret">
+                  SIRET
+                </Label>
+                <Input
+                  id="reg-siret"
+                  value={regSiret}
+                  onChange={(e) => setRegSiret(e.target.value)}
+                  type="text"
+                  placeholder="123 456 789 00012"
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="reg-address">
+                  Adresse de livraison
+                </Label>
+                <Input
+                  id="reg-address"
+                  value={regAddress}
+                  onChange={(e) => setRegAddress(e.target.value)}
+                  type="text"
+                  placeholder="48 rue du Faubourg St-Denis, 75010 Paris"
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="reg-email">
+                  Adresse e-mail professionnelle
+                </Label>
+                <Input
+                  id="reg-email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="contact@monepicerie.fr"
+                  className={FIELD}
+                />
+              </div>
+              <div>
+                <Label className={LABEL} htmlFor="reg-password">
+                  Mot de passe
+                </Label>
+                <Input
+                  id="reg-password"
+                  value={regPass}
+                  onChange={(e) => setRegPass(e.target.value)}
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="8 caractères minimum"
+                  className={FIELD}
+                />
+              </div>
+              {error && (
+                <div className="rounded-[10px] bg-[var(--gnanam-error-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--gnanam-error)]">
+                  {error}
                 </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Adresse e-mail professionnelle
-                  </Label>
-                  <Input
-                    value={state.authEmail}
-                    onChange={set("authEmail")}
-                    type="email"
-                    placeholder="contact@monepicerie.fr"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Mot de passe
-                  </Label>
-                  <Input
-                    value={state.authPass}
-                    onChange={set("authPass")}
-                    type="password"
-                    placeholder="••••••••"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                {state.authError && (
-                  <div className="rounded-[10px] bg-[var(--gnanam-error-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--gnanam-error)]">
-                    {state.authError}
-                  </div>
-                )}
-                <Button
-                  type="submit"
-                  className="mt-1 h-[50px] rounded-xl bg-[var(--gnanam-teal-900)] text-[15.5px] font-bold text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-700)]"
-                >
-                  Se connecter
-                </Button>
-                <a
-                  href="#"
-                  onClick={(e) => e.preventDefault()}
-                  className="text-center text-[13px] font-semibold text-[var(--gnanam-amber)] no-underline"
-                >
-                  Mot de passe oublié ?
-                </a>
-              </motion.form>
-            ) : (
-              <motion.form
-                key="register"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.15 }}
-                className="flex flex-col gap-3"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  dispatch({ type: "REGISTER" });
-                }}
+              )}
+              <Button
+                type="submit"
+                disabled={pending}
+                className="mt-1 h-[50px] rounded-xl bg-[var(--gnanam-gold)] text-[15.5px] font-bold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-gold-light)] disabled:opacity-70"
               >
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Nom de l&apos;établissement
-                  </Label>
-                  <Input
-                    value={state.regName}
-                    onChange={set("regName")}
-                    type="text"
-                    placeholder="Épicerie Mont Kailash"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">SIRET</Label>
-                  <Input
-                    value={state.regSiret}
-                    onChange={set("regSiret")}
-                    type="text"
-                    placeholder="123 456 789 00012"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Adresse e-mail professionnelle
-                  </Label>
-                  <Input
-                    value={state.regEmail}
-                    onChange={set("regEmail")}
-                    type="email"
-                    placeholder="contact@monepicerie.fr"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
-                    Mot de passe
-                  </Label>
-                  <Input
-                    value={state.regPass}
-                    onChange={set("regPass")}
-                    type="password"
-                    placeholder="8 caractères minimum"
-                    className="h-[46px] rounded-[11px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3.5 text-[14.5px] focus-visible:border-[var(--gnanam-gold)] focus-visible:bg-white focus-visible:ring-0"
-                  />
-                </div>
-                {state.authError && (
-                  <div className="rounded-[10px] bg-[var(--gnanam-error-bg)] px-3 py-2.5 text-[13px] font-semibold text-[var(--gnanam-error)]">
-                    {state.authError}
-                  </div>
-                )}
-                <Button
-                  type="submit"
-                  className="mt-1 h-[50px] rounded-xl bg-[var(--gnanam-gold)] text-[15.5px] font-bold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-gold-light)]"
-                >
-                  Créer mon compte pro
-                </Button>
-                <div className="text-center text-[12.5px] leading-relaxed text-[var(--gnanam-gray-400)]">
-                  Votre compte sera validé par l&apos;équipe GNANAM EXO sous 24h.
-                </div>
-              </motion.form>
-            )}
+                {pending ? "Création…" : "Créer mon compte pro"}
+              </Button>
+              <div className="text-center text-[12.5px] leading-relaxed text-[var(--gnanam-gray-400)]">
+                Votre compte donne accès au catalogue et au suivi de vos commandes.
+              </div>
+            </motion.form>
+          )}
         </div>
       </motion.div>
     </div>

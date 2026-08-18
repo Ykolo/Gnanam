@@ -1,0 +1,262 @@
+// Schéma GNANAM EXO.
+//
+// ⚠️ Les modèles User / Session / Account / Verification sont générés par
+// `bunx @better-auth/cli generate`. Relancer cette commande ÉCRASE le fichier :
+// ne le faire qu'après avoir sauvegardé la partie métier ci-dessous.
+//
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("client")
+  customerId    String?
+  sessions      Session[]
+  accounts      Account[]
+
+  customer     Customer?           @relation(fields: [customerId], references: [id])
+  ordersPicked Order[]             @relation("OrderPicker")
+  clearances   SecurityClearance[] @relation("ClearanceAgent")
+  stockMoves   StockMove[]         @relation("MoveAuthor")
+
+  @@unique([email])
+  @@index([customerId])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  /// Émetteur du compte (« local:credential » pour un mot de passe, l'URL du
+  /// fournisseur pour un OAuth). Requis depuis Better Auth 1.7, mais absent du
+  /// schéma produit par sa CLI 1.4 : ajouté à la main.
+  issuer                String    @default("local:credential")
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([issuer, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ---------------------------------------------------------------------------
+// Métier
+// ---------------------------------------------------------------------------
+
+enum Category {
+  FruitsLegumes
+  Epicerie
+  Surgeles
+  Boissons
+}
+
+enum Zone {
+  Frais
+  Sec
+  Surgele
+}
+
+enum OrderStatus {
+  todo
+  picking
+  ready
+  delivered
+}
+
+enum LineStatus {
+  pending
+  done
+  partial
+  missing
+}
+
+enum StockMoveKind {
+  sortie
+  reception
+  ajustement
+  annulation
+}
+
+/// Client B2B du grossiste. Un compte de rôle `client` y est rattaché.
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  siret        String?  @unique
+  address      String
+  contactEmail String?
+  createdAt    DateTime @default(now())
+
+  users  User[]
+  orders Order[]
+
+  @@map("customer")
+}
+
+/// Référence du catalogue. `sku` (p1…p18) sert aussi de nom de visuel
+/// dans public/produits/<sku>.webp.
+model Product {
+  id         String   @id @default(cuid())
+  sku        String   @unique
+  name       String
+  unit       String
+  priceCents Int
+  category   Category
+  zone       Zone
+  /// Seuil de réapprovisionnement, en colis.
+  minStock   Int      @default(0)
+  /// Stock physique courant, tenu à jour dans la même transaction que StockMove.
+  quantity   Int      @default(0)
+  imageUrl   String?
+  /// Désactivé plutôt que supprimé, pour ne pas casser l'historique des commandes.
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  lines OrderLine[]
+  moves StockMove[]
+
+  @@index([category])
+  @@map("product")
+}
+
+/// Commande client. La référence affichée (« CMD-1042 ») dérive de `seq`.
+model Order {
+  id          String      @id @default(cuid())
+  seq         Int         @unique @default(autoincrement())
+  customerId  String
+  status      OrderStatus @default(todo)
+  /// Créneau de livraison souhaité, « 8h – 11h ».
+  windowLabel String
+  /// Adresse figée à la commande : un déménagement du client ne réécrit pas l'historique.
+  address     String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  pickedById  String?
+  readyAt     DateTime?
+  deliveredAt DateTime?
+  signedBy    String?
+
+  customer  Customer           @relation(fields: [customerId], references: [id])
+  pickedBy  User?              @relation("OrderPicker", fields: [pickedById], references: [id])
+  lines     OrderLine[]
+  clearance SecurityClearance?
+  moves     StockMove[]
+
+  @@index([customerId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@map("order")
+}
+
+model OrderLine {
+  id             String     @id @default(cuid())
+  orderId        String
+  productId      String
+  qty            Int
+  /// Quantité réellement prélevée : égale à `qty` sauf ligne partielle ou manquante.
+  picked         Int
+  status         LineStatus @default(pending)
+  /// Prix figé au moment de la commande, pour que les rapports ne bougent pas
+  /// si le tarif du catalogue change ensuite.
+  unitPriceCents Int
+  /// Ordre d'affichage dans le bon de préparation.
+  position       Int
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+  @@index([orderId])
+  @@map("order_line")
+}
+
+/// Visa du poste sécurité, sans lequel une commande ne peut pas partir en livraison.
+model SecurityClearance {
+  id      String   @id @default(cuid())
+  orderId String   @unique
+  agentId String
+  at      DateTime @default(now())
+  conform Boolean  @default(true)
+  note    String?
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  agent User  @relation("ClearanceAgent", fields: [agentId], references: [id])
+
+  @@index([at])
+  @@map("security_clearance")
+}
+
+/// Journal des mouvements de stock. `delta` est signé : négatif = sortie.
+model StockMove {
+  id        String        @id @default(cuid())
+  productId String
+  delta     Int
+  kind      StockMoveKind
+  label     String
+  orderId   String?
+  userId    String?
+  createdAt DateTime      @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  user    User?   @relation("MoveAuthor", fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([productId, createdAt])
+  @@map("stock_move")
+}

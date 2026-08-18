@@ -9,27 +9,19 @@ import type {
   Order,
   OrderLine,
   RepPeriod,
-  RoleId,
   StockFilter,
   StockMove,
   StockMoveKind,
 } from "./types";
-import { INITIAL_ORDERS, INITIAL_STOCK, INITIAL_MOVES, ROLES } from "./data";
+import { INITIAL_ORDERS, INITIAL_STOCK, INITIAL_MOVES } from "./data";
 import { consumedOf } from "./stock";
 
-const initialState: AppState = {
-  role: "admin",
-  authed: false,
-  authTab: "login",
-  authEmail: "",
-  authPass: "",
-  regName: "",
-  regSiret: "",
-  regEmail: "",
-  regPass: "",
-  authError: null,
-  userName: "Épicerie Mont Kailash",
+/** Le module ouvert au démarrage dépend du profil : il est fourni par le serveur. */
+function makeInitialState(module: ModuleId): AppState {
+  return { ...baseState, module };
+}
 
+const baseState: AppState = {
   module: "commande",
   cat: "Tous",
   cart: {},
@@ -64,12 +56,7 @@ const initialState: AppState = {
 };
 
 type Action =
-  | { type: "SET_ROLE"; role: RoleId }
-  | { type: "SET_AUTH_TAB"; tab: "login" | "register" }
-  | { type: "SET_FIELD"; field: "authEmail" | "authPass" | "regName" | "regSiret" | "regEmail" | "regPass" | "search"; value: string }
-  | { type: "LOGIN" }
-  | { type: "REGISTER" }
-  | { type: "LOGOUT" }
+  | { type: "SET_FIELD"; field: "search"; value: string }
   | { type: "SET_MODULE"; module: ModuleId }
   | { type: "SET_CATEGORY"; cat: string }
   | { type: "ADD_TO_CART"; pid: string }
@@ -99,7 +86,7 @@ type Action =
   | { type: "OPEN_SEC_ORDER"; id: string }
   | { type: "BACK_TO_SEC_LIST" }
   | { type: "TOGGLE_SEC_LINE"; key: string }
-  | { type: "RELEASE_SEC_ORDER" }
+  | { type: "RELEASE_SEC_ORDER"; agent: string }
   | { type: "SET_REP_PERIOD"; period: RepPeriod }
   | { type: "SET_STOCK_SEARCH"; value: string }
   | { type: "SET_STOCK_FILTER"; filter: StockFilter }
@@ -169,53 +156,6 @@ function applyLine(state: AppState, orderId: string, idx: number, fn: (l: OrderL
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case "SET_ROLE":
-      return { ...state, role: action.role };
-    case "SET_AUTH_TAB":
-      return { ...state, authTab: action.tab, authError: null };
-    case "SET_FIELD":
-      return { ...state, [action.field]: action.value, authError: null };
-    case "LOGIN": {
-      if (!state.authEmail || !state.authPass) {
-        return { ...state, authError: "Veuillez saisir votre e-mail et votre mot de passe." };
-      }
-      const role = ROLES[state.role];
-      return {
-        ...state,
-        authed: true,
-        authError: null,
-        authPass: "",
-        module: role.modules[0],
-        userName: role.user,
-      };
-    }
-    case "REGISTER": {
-      if (!state.regName || !state.regEmail || !state.regPass) {
-        return { ...state, authError: "Veuillez remplir tous les champs obligatoires." };
-      }
-      return {
-        ...state,
-        authed: true,
-        authError: null,
-        userName: state.regName,
-        regPass: "",
-        role: "client",
-        module: "commande",
-      };
-    }
-    case "LOGOUT":
-      return {
-        ...state,
-        authed: false,
-        authTab: "login",
-        authPass: "",
-        authError: null,
-        module: "commande",
-        prepView: "list",
-        livView: "list",
-        secView: "list",
-        orderSent: false,
-      };
     case "SET_MODULE":
       return { ...state, module: action.module };
     case "SET_CATEGORY":
@@ -337,7 +277,7 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, secChecked: { ...state.secChecked, [action.key]: !state.secChecked[action.key] } };
     case "RELEASE_SEC_ORDER": {
       if (!state.secOrderId) return state;
-      const clearance = { at: nowLabel(), agent: state.userName };
+      const clearance = { at: nowLabel(), agent: action.agent };
       return {
         ...state,
         orders: updOrder(state.orders, state.secOrderId, (o) => ({ ...o, security: clearance })),
@@ -381,8 +321,14 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
-export function GnanamStoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+export function GnanamStoreProvider({
+  initialModule,
+  children,
+}: {
+  initialModule: ModuleId;
+  children: ReactNode;
+}) {
+  const [state, dispatch] = useReducer(reducer, initialModule, makeInitialState);
   const value = useMemo(() => ({ state, dispatch }), [state]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

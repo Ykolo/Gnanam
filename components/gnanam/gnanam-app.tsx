@@ -2,7 +2,6 @@
 
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { useIsDesktop } from "@/lib/gnanam/use-is-desktop";
-import { AuthScreen } from "./auth-screen";
 import { Sidebar } from "./sidebar";
 import { MobileNav } from "./mobile-nav";
 import { CommandeModule } from "./commande/commande-module";
@@ -15,8 +14,6 @@ import { RapportsModule } from "./rapports/rapports-module";
 export function GnanamApp() {
   const { state } = useGnanamStore();
   const isDesktop = useIsDesktop();
-
-  if (!state.authed) return <AuthScreen />;
 
   return (
     <div className="flex h-full w-full">

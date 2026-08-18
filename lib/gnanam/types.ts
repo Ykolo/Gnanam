@@ -79,19 +79,8 @@ export interface AppSettings {
   showPricesInPrep: boolean;
 }
 
+/** État d'interface uniquement : l'identité vient de la session, les données du serveur. */
 export interface AppState {
-  role: RoleId;
-  authed: boolean;
-  authTab: AuthTab;
-  authEmail: string;
-  authPass: string;
-  regName: string;
-  regSiret: string;
-  regEmail: string;
-  regPass: string;
-  authError: string | null;
-  userName: string;
-
   module: ModuleId;
   cat: string;
   cart: CartMap;
