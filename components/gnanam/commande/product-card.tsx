@@ -4,24 +4,24 @@ import { motion } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
 import type { Product } from "@/lib/gnanam/types";
 import { CAT_COLORS, PROMO_IDS } from "@/lib/gnanam/data";
-import { eur, unitPriceLabel, initialsOf } from "@/lib/gnanam/utils";
+import { eur, unitPriceLabel } from "@/lib/gnanam/utils";
+import { ProductImage } from "@/components/gnanam/product-image";
 import { useGnanamStore } from "@/lib/gnanam/store";
 
 export function ProductCard({ product }: { product: Product }) {
   const { state, dispatch } = useGnanamStore();
   const qty = state.cart[product.id] || 0;
-  const [tileBg, tileFg] = CAT_COLORS[product.cat];
+  const [, tileFg] = CAT_COLORS[product.cat];
   const isPromo = PROMO_IDS.includes(product.id);
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-[var(--gnanam-border-softer)] bg-white shadow-[0_2px_10px_rgba(14,58,66,.05)]">
-      <div className="relative flex h-[120px] items-center justify-center" style={{ background: tileBg }}>
-        <div
-          className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-white/75 text-[21px] font-extrabold"
-          style={{ color: tileFg }}
-        >
-          {initialsOf(product.name)}
-        </div>
+      <div className="relative h-[120px]">
+        <ProductImage
+          product={product}
+          sizes="(min-width: 1024px) 240px, 50vw"
+          className="h-full w-full"
+        />
         <span
           className="absolute top-2.5 left-2.5 rounded-full bg-white/85 px-2.5 py-1 text-[10.5px] font-extrabold tracking-wide uppercase"
           style={{ color: tileFg }}
