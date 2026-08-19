@@ -8,8 +8,8 @@
  */
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { PRODUCTS, STOCK_SEED, INITIAL_ORDERS, INITIAL_MOVES } from "@/lib/gnanam/data";
-import type { Category as CategoryLabel, Zone as ZoneLabel } from "@/lib/gnanam/types";
+import { PRODUCTS, STOCK_SEED, INITIAL_ORDERS, INITIAL_MOVES } from "./seed-data";
+import type { CategoryLabel, ZoneLabel } from "./seed-data";
 import { Category, LineStatus, OrderStatus, StockMoveKind, Zone } from "@/lib/generated/prisma/enums";
 
 const CATEGORY: Record<CategoryLabel, Category> = {

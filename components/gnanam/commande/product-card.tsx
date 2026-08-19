@@ -2,17 +2,20 @@
 
 import { motion } from "framer-motion";
 import { Plus, Minus } from "lucide-react";
-import type { Product } from "@/lib/gnanam/types";
-import { CAT_COLORS, PROMO_IDS } from "@/lib/gnanam/data";
+import type { RouterOutputs } from "@/lib/trpc/client";
+import { CAT_COLORS, CATEGORY_LABELS, PROMO_SKUS } from "@/lib/gnanam/data";
 import { eur, unitPriceLabel } from "@/lib/gnanam/utils";
 import { ProductImage } from "@/components/gnanam/product-image";
 import { useGnanamStore } from "@/lib/gnanam/store";
 
+type Product = RouterOutputs["products"]["list"][number];
+
 export function ProductCard({ product }: { product: Product }) {
   const { state, dispatch } = useGnanamStore();
   const qty = state.cart[product.id] || 0;
-  const [, tileFg] = CAT_COLORS[product.cat];
-  const isPromo = PROMO_IDS.includes(product.id);
+  const [, tileFg] = CAT_COLORS[product.category];
+  const isPromo = PROMO_SKUS.includes(product.sku);
+  const priceEur = product.priceCents / 100;
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-[var(--gnanam-border-softer)] bg-white shadow-[0_2px_10px_rgba(14,58,66,.05)]">
@@ -26,7 +29,7 @@ export function ProductCard({ product }: { product: Product }) {
           className="absolute top-2.5 left-2.5 rounded-full bg-white/85 px-2.5 py-1 text-[10.5px] font-extrabold tracking-wide uppercase"
           style={{ color: tileFg }}
         >
-          {product.cat}
+          {CATEGORY_LABELS[product.category]}
         </span>
         {isPromo && (
           <span className="absolute top-2.5 right-2.5 rounded-full bg-[var(--gnanam-error)] px-2.5 py-1 text-[10.5px] font-extrabold text-white">
@@ -37,11 +40,11 @@ export function ProductCard({ product }: { product: Product }) {
       <div className="flex flex-1 flex-col gap-1 p-3.5 pb-3.5">
         <div className="text-[14.5px] leading-tight font-bold">{product.name}</div>
         <div className="text-[12.5px] text-[var(--gnanam-gray-400)]">
-          {product.unit} · réf. {product.id.toUpperCase().replace("P", "GE-10")}
+          {product.unit} · réf. {product.sku.toUpperCase().replace("P", "GE-10")}
         </div>
         <div className="mt-1 flex items-baseline gap-1.5">
-          <div className="text-[17px] font-extrabold text-[var(--gnanam-teal-900)]">{eur(product.price)}</div>
-          <div className="text-[11px] text-[var(--gnanam-gray-400)]">HT · {unitPriceLabel(product.unit, product.price)}</div>
+          <div className="text-[17px] font-extrabold text-[var(--gnanam-teal-900)]">{eur(priceEur)}</div>
+          <div className="text-[11px] text-[var(--gnanam-gray-400)]">HT · {unitPriceLabel(product.unit, priceEur)}</div>
         </div>
         <div className="mt-2.5">
           {qty > 0 ? (

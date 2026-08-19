@@ -2,12 +2,12 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct, STOCK_MOVE_LABELS } from "@/lib/gnanam/data";
+import { api, LIVE } from "@/lib/trpc/client";
+import { STOCK_MOVE_LABELS } from "@/lib/gnanam/data";
 import { useLiveClock } from "@/lib/gnanam/use-live-clock";
 
 export function StockMoves() {
-  const { state } = useGnanamStore();
+  const { data: moves } = api.stock.moves.useQuery(undefined, LIVE);
   const clock = useLiveClock();
 
   return (
@@ -27,9 +27,8 @@ export function StockMoves() {
 
       <div className="max-h-[460px] flex-1 overflow-y-auto p-2.5">
         <AnimatePresence initial={false}>
-          {state.stockMoves.map((m) => {
+          {(moves ?? []).map((m) => {
             const isIn = m.delta > 0;
-            const p = findProduct(m.pid);
             return (
               <motion.div
                 key={m.id}
@@ -50,7 +49,7 @@ export function StockMoves() {
                   {isIn ? <ArrowDownLeft size={17} strokeWidth={2.4} /> : <ArrowUpRight size={17} strokeWidth={2.4} />}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] leading-tight font-bold">{p.name}</div>
+                  <div className="truncate text-[13.5px] leading-tight font-bold">{m.product.name}</div>
                   <div className="truncate text-[11.5px] text-[var(--gnanam-gray-400)]">
                     {STOCK_MOVE_LABELS[m.kind]} · {m.label}
                   </div>
@@ -63,14 +62,16 @@ export function StockMoves() {
                     {isIn ? "+" : "−"}
                     {Math.abs(m.delta)}
                   </div>
-                  <div className="text-[11px] text-[var(--gnanam-gray-400)]">{m.time}</div>
+                  <div className="text-[11px] text-[var(--gnanam-gray-400)]">
+                    {m.createdAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                  </div>
                 </div>
               </motion.div>
             );
           })}
         </AnimatePresence>
 
-        {state.stockMoves.length === 0 && (
+        {(moves ?? []).length === 0 && (
           <div className="px-3 py-10 text-center text-[13.5px] text-[var(--gnanam-gray-400)]">
             Aucun mouvement enregistré aujourd&apos;hui.
           </div>

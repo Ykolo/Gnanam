@@ -46,3 +46,5 @@ export const clientProcedure = protectedProcedure.use(requireRole("client"));
 export const entrepotProcedure = protectedProcedure.use(requireRole("entrepot"));
 export const securiteProcedure = protectedProcedure.use(requireRole("securite"));
 export const adminProcedure = protectedProcedure.use(requireRole("admin"));
+/** Postes qui partagent la file des commandes du jour : entrepôt (prépa, livraison) et sécurité. */
+export const opsProcedure = protectedProcedure.use(requireRole("entrepot", "securite"));

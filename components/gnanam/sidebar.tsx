@@ -3,6 +3,7 @@
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { useSession } from "@/lib/gnanam/session";
 import { useLogout } from "@/lib/gnanam/use-logout";
+import { api, LIVE } from "@/lib/trpc/client";
 import { MODULE_LABELS, ROLES } from "@/lib/gnanam/data";
 import { moduleBadge, modulesOf } from "@/lib/gnanam/nav";
 import { initialsOf } from "@/lib/gnanam/utils";
@@ -14,10 +15,16 @@ export function Sidebar() {
   const session = useSession();
   const { logout, pending } = useLogout();
 
+  const { data: orders } = api.orders.today.useQuery(undefined, { ...LIVE, enabled: session.role !== "client" });
+  const { data: stock } = api.stock.list.useQuery(undefined, {
+    ...LIVE,
+    enabled: session.role === "entrepot" || session.role === "admin",
+  });
+
   const navItem = (id: ModuleId) => {
     const Icon = NAV_ICONS[id];
     const active = state.module === id;
-    const badge = moduleBadge(state, id);
+    const badge = moduleBadge(id, orders, stock);
     return (
       <button
         key={id}

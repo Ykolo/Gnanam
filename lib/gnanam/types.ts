@@ -1,44 +1,6 @@
-export type Category = "Fruits & Légumes" | "Épicerie" | "Surgelés" | "Boissons";
-export type Zone = "Frais" | "Sec" | "Surgelé";
-
-export interface Product {
-  id: string;
-  name: string;
-  unit: string;
-  price: number;
-  cat: Category;
-  zone: Zone;
-}
+import type { Zone } from "@/lib/generated/prisma/enums";
 
 export type CartMap = Record<string, number>;
-
-export type LineStatus = "pending" | "done" | "partial" | "missing";
-
-export interface OrderLine {
-  pid: string;
-  qty: number;
-  status: LineStatus;
-  picked: number;
-}
-
-export type OrderStatus = "todo" | "picking" | "ready" | "delivered";
-
-/** Visa du poste sécurité, apposé quand le caddie est autorisé à sortir. */
-export interface SecurityClearance {
-  /** Heure locale « HH:MM » de la validation. */
-  at: string;
-  agent: string;
-}
-
-export interface Order {
-  id: string;
-  client: string;
-  address: string;
-  window: string;
-  status: OrderStatus;
-  lines: OrderLine[];
-  security?: SecurityClearance;
-}
 
 export type AuthTab = "login" | "register";
 export type ModuleId = "commande" | "preparation" | "securite" | "livraison" | "stock" | "rapports";
@@ -56,20 +18,6 @@ export interface Role {
   modules: ModuleId[];
 }
 
-/** Mouvement de stock du dépôt, horodaté au fil de l'eau. */
-export type StockMoveKind = "sortie" | "reception" | "ajustement" | "annulation";
-
-export interface StockMove {
-  id: string;
-  pid: string;
-  /** Signé : négatif = sortie de stock, positif = entrée. */
-  delta: number;
-  kind: StockMoveKind;
-  label: string;
-  /** Heure locale « HH:MM » figée au moment du mouvement. */
-  time: string;
-}
-
 export type StockFilter = "all" | "alert" | Zone;
 export type StockLevel = "rupture" | "critique" | "ok";
 
@@ -79,7 +27,11 @@ export interface AppSettings {
   showPricesInPrep: boolean;
 }
 
-/** État d'interface uniquement : l'identité vient de la session, les données du serveur. */
+/**
+ * État d'interface uniquement : l'identité vient de la session, commandes, stock
+ * et rapports sont des requêtes tRPC. Ce qui reste ici ne survivrait pas à un
+ * rechargement de toute façon (panier en cours, filtres, écran ouvert…).
+ */
 export interface AppState {
   module: ModuleId;
   cat: string;
@@ -88,7 +40,6 @@ export interface AppState {
   cartOpen: boolean;
   orderSent: boolean;
   lastOrderId: string | null;
-  nextNum: number;
 
   prepView: PrepView;
   activeOrderId: string | null;
@@ -100,7 +51,7 @@ export interface AppState {
 
   secView: SecView;
   secOrderId: string | null;
-  /** Lignes cochées au contrôle sortie, indexées « idCommande-indexLigne ». */
+  /** Lignes cochées au contrôle sortie, indexées par id de ligne. */
   secChecked: Record<string, boolean>;
   secSearch: string;
 
@@ -108,10 +59,4 @@ export interface AppState {
 
   stockSearch: string;
   stockFilter: StockFilter;
-  /** Stock physique du dépôt, en colis, par référence produit. */
-  stock: Record<string, number>;
-  stockMoves: StockMove[];
-  moveSeq: number;
-
-  orders: Order[];
 }

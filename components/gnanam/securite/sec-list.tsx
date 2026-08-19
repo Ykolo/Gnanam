@@ -2,17 +2,20 @@
 
 import { Search, ScanLine } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
+import type { RouterOutputs } from "@/lib/trpc/client";
 import { zonesOf, normalize, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 
-export function SecList() {
+type Order = RouterOutputs["orders"]["today"][number];
+
+export function SecList({ orders, isLoading }: { orders: Order[]; isLoading: boolean }) {
   const { state, dispatch } = useGnanamStore();
 
   const q = normalize(state.secSearch.trim());
-  const list = state.orders.filter(
+  const list = orders.filter(
     (o) =>
       (o.status === "ready" || o.status === "delivered") &&
-      (!q || normalize(o.id).includes(q) || normalize(o.client).includes(q))
+      (!q || normalize(`CMD-${o.seq}`).includes(q) || normalize(o.customer.name).includes(q))
   );
 
   return (
@@ -41,7 +44,7 @@ export function SecList() {
         </div>
 
         {list.map((o) => {
-          const controlled = !!o.security;
+          const controlled = !!o.clearance;
           return (
             <div
               key={o.id}
@@ -49,10 +52,10 @@ export function SecList() {
             >
               <div className="flex flex-wrap items-center gap-3">
                 <div className="min-w-[160px] flex-1">
-                  <div className="text-base font-bold">{o.client}</div>
+                  <div className="text-base font-bold">{o.customer.name}</div>
                   <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
-                    {o.id} · {plural(o.lines.length, "produit")} ·{" "}
-                    {plural(zonesOf(o, SETTINGS.groupByZone).length, "caddie")}
+                    CMD-{o.seq} · {plural(o.lines.length, "produit")} ·{" "}
+                    {plural(zonesOf(o.lines, SETTINGS.groupByZone).length, "caddie")}
                   </div>
                 </div>
                 <span
@@ -62,7 +65,9 @@ export function SecList() {
                     color: controlled ? "var(--gnanam-success)" : "var(--gnanam-amber)",
                   }}
                 >
-                  {controlled ? `Sortie autorisée · ${o.security!.at}` : "À contrôler"}
+                  {controlled
+                    ? `Sortie autorisée · ${o.clearance!.at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+                    : "À contrôler"}
                 </span>
               </div>
               {!controlled && (
@@ -77,7 +82,7 @@ export function SecList() {
           );
         })}
 
-        {list.length === 0 && (
+        {!isLoading && list.length === 0 && (
           <div className="rounded-2xl bg-white px-5 py-8 text-center text-[14.5px] text-[var(--gnanam-gray-400)]">
             Aucun caddie en attente de contrôle.
           </div>

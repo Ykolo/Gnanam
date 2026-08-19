@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCReact } from "@trpc/react-query";
 import { httpBatchLink } from "@trpc/client";
 import superjson from "superjson";
+import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers/_app";
 
 export const api = createTRPCReact<AppRouter>();
+export type RouterOutputs = inferRouterOutputs<AppRouter>;
 
 /**
  * Options communes aux écrans du dépôt : plusieurs postes travaillent sur les
