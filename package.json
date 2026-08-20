@@ -12,7 +12,9 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "bun run prisma/seed.ts",
     "db:studio": "prisma studio",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -38,17 +40,23 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.5",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.0",
     "babel-plugin-react-compiler": "1.0.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
+    "jsdom": "^30.0.1",
     "prisma": "^7.9.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vercel": "^59.1.4"
+    "vercel": "^59.1.4",
+    "vitest": "^4.1.11"
   },
   "ignoreScripts": [
     "sharp",
