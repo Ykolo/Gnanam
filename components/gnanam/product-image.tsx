@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import type { Product } from "@/lib/gnanam/types";
+import type { Category } from "@/lib/generated/prisma/enums";
 import { CAT_COLORS } from "@/lib/gnanam/data";
 import { initialsOf } from "@/lib/gnanam/utils";
 
 /**
- * Visuel produit servi depuis public/produits/<id>.webp, sur le fond de sa
+ * Visuel produit servi depuis public/produits/<sku>.webp, sur le fond de sa
  * catégorie — les photos ont été détourées sur cette même couleur, le raccord
  * est donc invisible. Repli sur les initiales si le fichier manque, ce qui
  * arrive pour toute référence ajoutée après coup depuis le module catalogue.
@@ -21,13 +21,13 @@ export function ProductImage({
   className = "",
   fallbackClass = "text-[21px]",
 }: {
-  product: Product;
+  product: { sku: string; name: string; category: Category };
   sizes: string;
   className?: string;
   fallbackClass?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const [tileBg, tileFg] = CAT_COLORS[product.cat];
+  const [tileBg, tileFg] = CAT_COLORS[product.category];
 
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ background: tileBg }}>
@@ -40,7 +40,7 @@ export function ProductImage({
         </div>
       ) : (
         <Image
-          src={`/produits/${product.id}.webp`}
+          src={`/produits/${product.sku}.webp`}
           alt=""
           fill
           sizes={sizes}

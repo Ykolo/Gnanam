@@ -1,6 +1,9 @@
 "use client";
 
 import { useGnanamStore } from "@/lib/gnanam/store";
+import { useSession } from "@/lib/gnanam/session";
+import { useLogout } from "@/lib/gnanam/use-logout";
+import { api, LIVE } from "@/lib/trpc/client";
 import { MODULE_LABELS, ROLES } from "@/lib/gnanam/data";
 import { moduleBadge, modulesOf } from "@/lib/gnanam/nav";
 import { initialsOf } from "@/lib/gnanam/utils";
@@ -9,11 +12,19 @@ import type { ModuleId } from "@/lib/gnanam/types";
 
 export function Sidebar() {
   const { state, dispatch } = useGnanamStore();
+  const session = useSession();
+  const { logout, pending } = useLogout();
+
+  const { data: orders } = api.orders.today.useQuery(undefined, { ...LIVE, enabled: session.role !== "client" });
+  const { data: stock } = api.stock.list.useQuery(undefined, {
+    ...LIVE,
+    enabled: session.role === "entrepot" || session.role === "admin",
+  });
 
   const navItem = (id: ModuleId) => {
     const Icon = NAV_ICONS[id];
     const active = state.module === id;
-    const badge = moduleBadge(state, id);
+    const badge = moduleBadge(id, orders, stock);
     return (
       <button
         key={id}
@@ -48,7 +59,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {modulesOf(state).map(navItem)}
+      {modulesOf(session.role).map(navItem)}
 
       <div className="mt-auto flex flex-col gap-2.5">
         <div className="rounded-[10px] bg-[var(--gnanam-teal-800)] p-3 text-xs leading-relaxed text-[var(--gnanam-muted-teal)]">
@@ -57,14 +68,15 @@ export function Sidebar() {
         </div>
         <div className="flex items-center gap-2.5 rounded-[10px] bg-[var(--gnanam-teal-800)] px-3 py-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--gnanam-gold)] text-[13px] font-extrabold text-[var(--gnanam-teal-900)]">
-            {initialsOf(state.userName)}
+            {initialsOf(session.name)}
           </div>
           <div className="min-w-0 flex-1 text-xs leading-tight">
-            <div className="truncate font-bold text-[#EDE6D6]">{state.userName}</div>
-            <div className="text-[var(--gnanam-muted-teal)]">{ROLES[state.role].label}</div>
+            <div className="truncate font-bold text-[#EDE6D6]">{session.name}</div>
+            <div className="text-[var(--gnanam-muted-teal)]">{ROLES[session.role].label}</div>
           </div>
           <button
-            onClick={() => dispatch({ type: "LOGOUT" })}
+            onClick={logout}
+            disabled={pending}
             aria-label="Se déconnecter"
             title="Se déconnecter"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-[var(--gnanam-teal-700)] text-[#EDE6D6] transition-colors hover:bg-[var(--gnanam-error)] hover:text-white"

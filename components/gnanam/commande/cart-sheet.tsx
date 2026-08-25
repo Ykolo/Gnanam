@@ -4,21 +4,38 @@ import { useMemo } from "react";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct } from "@/lib/gnanam/data";
+import { api } from "@/lib/trpc/client";
 import { eur } from "@/lib/gnanam/utils";
 import { ProductImage } from "@/components/gnanam/product-image";
 
 export function CartSheet() {
   const { state, dispatch } = useGnanamStore();
+  const { data: products } = api.products.list.useQuery();
+  const utils = api.useUtils();
+  const createOrder = api.orders.create.useMutation({
+    onSuccess: (order) => {
+      dispatch({ type: "ORDER_SUBMITTED", orderLabel: `CMD-${order.seq}` });
+      utils.orders.today.invalidate();
+    },
+  });
+
+  const productOf = useMemo(() => new Map((products ?? []).map((p) => [p.id, p])), [products]);
 
   const cartEntries = useMemo(
-    () => Object.entries(state.cart).filter(([, q]) => q > 0),
-    [state.cart]
+    () => Object.entries(state.cart).filter(([pid, q]) => q > 0 && productOf.has(pid)),
+    [state.cart, productOf]
   );
+  const cartCentsTotal = cartEntries.reduce((a, [pid, q]) => a + (productOf.get(pid)?.priceCents ?? 0) * q, 0);
   const cartCount = cartEntries.reduce((a, [, q]) => a + q, 0);
-  const cartTotal = cartEntries.reduce((a, [pid, q]) => a + findProduct(pid).price * q, 0);
+  const cartTotal = cartCentsTotal / 100;
   const vat = cartTotal * 0.055;
   const ttc = cartTotal * 1.055;
+
+  const submit = () => {
+    const items = cartEntries.map(([productId, qty]) => ({ productId, qty }));
+    if (items.length === 0) return;
+    createOrder.mutate({ items });
+  };
 
   return (
     <Sheet open={state.cartOpen} onOpenChange={(open) => dispatch({ type: "SET_CART_OPEN", open })}>
@@ -37,7 +54,7 @@ export function CartSheet() {
             <div className="flex-1 overflow-y-auto p-5 py-3.5">
               <div className="flex flex-col gap-2.5">
                 {cartEntries.map(([pid, qty]) => {
-                  const p = findProduct(pid);
+                  const p = productOf.get(pid)!;
                   return (
                     <div
                       key={pid}
@@ -52,7 +69,7 @@ export function CartSheet() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-[13.5px] leading-tight font-bold">{p.name}</div>
                         <div className="mt-0.5 text-xs text-[var(--gnanam-gray-400)]">
-                          {p.unit} · {eur(p.price)} HT
+                          {p.unit} · {eur(p.priceCents / 100)} HT
                         </div>
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <button
@@ -77,7 +94,7 @@ export function CartSheet() {
                         </div>
                       </div>
                       <div className="text-sm font-extrabold whitespace-nowrap text-[var(--gnanam-teal-900)]">
-                        {eur(p.price * qty)}
+                        {eur((p.priceCents / 100) * qty)}
                       </div>
                     </div>
                   );
@@ -101,11 +118,17 @@ export function CartSheet() {
                 <span>{eur(ttc)}</span>
               </div>
               <button
-                onClick={() => dispatch({ type: "SUBMIT_ORDER" })}
-                className="mt-2 h-[50px] rounded-[13px] bg-[var(--gnanam-success)] text-[15px] font-bold text-white hover:bg-[var(--gnanam-success-hover)]"
+                onClick={submit}
+                disabled={createOrder.isPending}
+                className="mt-2 h-[50px] rounded-[13px] bg-[var(--gnanam-success)] text-[15px] font-bold text-white hover:bg-[var(--gnanam-success-hover)] disabled:opacity-70"
               >
-                Commander — livraison J+1
+                {createOrder.isPending ? "Envoi…" : "Commander — livraison J+1"}
               </button>
+              {createOrder.isError && (
+                <div className="text-center text-[13px] font-semibold text-[var(--gnanam-error)]">
+                  {createOrder.error.message}
+                </div>
+              )}
             </div>
           </>
         ) : (

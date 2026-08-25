@@ -1,15 +1,18 @@
 "use client";
 
 import { useGnanamStore } from "@/lib/gnanam/store";
+import type { RouterOutputs } from "@/lib/trpc/client";
 import { LIV_STATUS } from "@/lib/gnanam/data";
 import { zonesOf, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 
-export function LivraisonList() {
-  const { state, dispatch } = useGnanamStore();
+type Order = RouterOutputs["orders"]["today"][number];
 
-  const deliverable = state.orders.filter((o) => o.status === "ready" || o.status === "delivered");
-  const inPrep = state.orders.filter((o) => o.status === "todo" || o.status === "picking");
+export function LivraisonList({ orders, isLoading }: { orders: Order[]; isLoading: boolean }) {
+  const { dispatch } = useGnanamStore();
+
+  const deliverable = orders.filter((o) => o.status === "ready" || o.status === "delivered");
+  const inPrep = orders.filter((o) => o.status === "todo" || o.status === "picking");
   const stops = [...deliverable, ...inPrep];
 
   return (
@@ -46,7 +49,7 @@ export function LivraisonList() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="text-base font-bold">{o.client}</div>
+                  <div className="text-base font-bold">{o.customer.name}</div>
                   <span
                     className="rounded-full px-2.5 py-1 text-xs font-bold"
                     style={{ background: statusBg, color: statusFg }}
@@ -56,7 +59,7 @@ export function LivraisonList() {
                 </div>
                 <div className="mt-1 text-[13px] text-[var(--gnanam-gray-600)]">{o.address}</div>
                 <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
-                  {o.id} · {plural(zonesOf(o, SETTINGS.groupByZone).length, "caddie")} · créneau {o.window}
+                  CMD-{o.seq} · {plural(zonesOf(o.lines, SETTINGS.groupByZone).length, "caddie")} · créneau {o.windowLabel}
                 </div>
                 {canDeliver && (
                   <button
@@ -70,6 +73,11 @@ export function LivraisonList() {
             </div>
           );
         })}
+        {!isLoading && stops.length === 0 && (
+          <div className="rounded-2xl bg-white px-5 py-8 text-center text-[14.5px] text-[var(--gnanam-gray-400)]">
+            Aucun arrêt sur la tournée du jour.
+          </div>
+        )}
       </div>
     </div>
   );

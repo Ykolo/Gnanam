@@ -3,29 +3,39 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, ShieldCheck } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct } from "@/lib/gnanam/data";
+import { api } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
 import { zonesOf } from "@/lib/gnanam/utils";
+import { ZONE_SHORT_LABELS } from "@/lib/gnanam/data";
 import { SETTINGS } from "@/lib/gnanam/settings";
 import { useIsDesktop } from "@/lib/gnanam/use-is-desktop";
+import type { Zone } from "@/lib/generated/prisma/enums";
 
-export function SecCheck() {
+type Order = RouterOutputs["orders"]["today"][number];
+
+export function SecCheck({ order }: { order: Order }) {
   const { state, dispatch } = useGnanamStore();
   const isDesktop = useIsDesktop();
-  const order = state.orders.find((o) => o.id === state.secOrderId);
-  if (!order) return null;
+  const utils = api.useUtils();
+  const release = api.securite.release.useMutation({
+    onSuccess: () => {
+      utils.orders.today.invalidate();
+      dispatch({ type: "BACK_TO_SEC_LIST" });
+    },
+  });
 
   /** Caddie de rattachement de chaque ligne, pour guider l'agent au poste. */
   const caddieOf: Record<number, string> = {};
-  zonesOf(order, SETTINGS.groupByZone).forEach((g, gi) => {
+  zonesOf(order.lines, SETTINGS.groupByZone).forEach((g, gi) => {
     g.idxs.forEach((i) => {
-      caddieOf[i] = `Caddie ${gi + 1} · ${g.zone}`;
+      caddieOf[i] = `Caddie ${gi + 1} · ${ZONE_SHORT_LABELS[g.zone as Zone] ?? g.zone}`;
     });
   });
 
   const total = order.lines.length;
-  const done = order.lines.filter((_, i) => state.secChecked[`${order.id}-${i}`]).length;
+  const done = order.lines.filter((l) => state.secChecked[l.id]).length;
   const pct = Math.round((done / total) * 100);
-  const allOk = done === total && !order.security;
+  const allOk = done === total && !order.clearance;
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -39,8 +49,8 @@ export function SecCheck() {
             <ArrowLeft size={18} strokeWidth={2.5} />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-[17px] font-bold">{order.client}</div>
-            <div className="text-[12.5px] text-[var(--gnanam-muted-teal)]">{order.id} · contrôle sortie</div>
+            <div className="text-[17px] font-bold">{order.customer.name}</div>
+            <div className="text-[12.5px] text-[var(--gnanam-muted-teal)]">CMD-{order.seq} · contrôle sortie</div>
           </div>
         </div>
         <div className="mt-3.5 flex items-center gap-3">
@@ -62,13 +72,12 @@ export function SecCheck() {
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-32">
         <div className="flex max-w-[680px] flex-col gap-2">
           {order.lines.map((l, i) => {
-            const p = findProduct(l.pid);
-            const key = `${order.id}-${i}`;
-            const isOk = !!state.secChecked[key];
+            const p = l.product;
+            const isOk = !!state.secChecked[l.id];
             return (
               <button
-                key={key}
-                onClick={() => dispatch({ type: "TOGGLE_SEC_LINE", key })}
+                key={l.id}
+                onClick={() => dispatch({ type: "TOGGLE_SEC_LINE", key: l.id })}
                 className="flex w-full items-center gap-4 rounded-[14px] border-[1.5px] px-4 py-3.5 text-left transition-colors"
                 style={{
                   background: isOk ? "#F0F7F1" : "#fff",
@@ -107,8 +116,9 @@ export function SecCheck() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            onClick={() => dispatch({ type: "RELEASE_SEC_ORDER" })}
-            className="pointer-events-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-2xl bg-[var(--gnanam-success)] py-4.5 text-[16.5px] font-bold text-white shadow-[0_14px_34px_rgba(46,125,79,.4)] hover:bg-[var(--gnanam-success-hover)]"
+            onClick={() => release.mutate({ orderId: order.id })}
+            disabled={release.isPending}
+            className="pointer-events-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-2xl bg-[var(--gnanam-success)] py-4.5 text-[16.5px] font-bold text-white shadow-[0_14px_34px_rgba(46,125,79,.4)] hover:bg-[var(--gnanam-success-hover)] disabled:opacity-70"
           >
             <ShieldCheck size={21} strokeWidth={2.6} />
             Autoriser la sortie

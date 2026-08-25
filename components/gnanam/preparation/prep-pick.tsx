@@ -3,20 +3,29 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, ScanLine, Minus, Plus, MoreHorizontal } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct, ZONE_COLORS, ZONE_LABELS } from "@/lib/gnanam/data";
+import { api } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
+import { ZONE_COLORS, ZONE_LABELS } from "@/lib/gnanam/data";
 import { zonesOf, eur, plural } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
 import { useIsDesktop } from "@/lib/gnanam/use-is-desktop";
-import type { Order, OrderLine, Zone } from "@/lib/gnanam/types";
+import { LineStatus } from "@/lib/generated/prisma/enums";
+import type { Zone } from "@/lib/generated/prisma/enums";
 
-function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderLine }) {
+type Order = RouterOutputs["orders"]["today"][number];
+type Line = Order["lines"][number];
+
+function LineRow({ orderId, line }: { orderId: string; line: Line }) {
   const { state, dispatch } = useGnanamStore();
-  const p = findProduct(line.pid);
-  const key = order.id + "-" + idx;
-  const isDone = line.status === "done";
-  const isPartial = line.status === "partial";
-  const isMissing = line.status === "missing";
-  const flagOpen = state.flagOpen === key;
+  const utils = api.useUtils();
+  const setLineStatus = api.preparation.setLineStatus.useMutation({ onSuccess: () => utils.orders.today.invalidate() });
+  const adjustPicked = api.preparation.adjustPicked.useMutation({ onSuccess: () => utils.orders.today.invalidate() });
+
+  const p = line.product;
+  const isDone = line.status === LineStatus.done;
+  const isPartial = line.status === LineStatus.partial;
+  const isMissing = line.status === LineStatus.missing;
+  const flagOpen = state.flagOpen === line.id;
 
   const bg = isDone ? "#F0F7F1" : isPartial ? "#FDFAF0" : isMissing ? "#FDF3F1" : "#fff";
   const border = isDone ? "#BBDCC4" : isPartial ? "#EBD9A8" : isMissing ? "#EFC4BD" : "var(--gnanam-border-soft)";
@@ -28,6 +37,11 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
         ? "#D96C5F"
         : "var(--gnanam-neutral-border)";
 
+  const runAction = (action: "toggle" | "partial" | "missing" | "reset") => {
+    dispatch({ type: "SET_FLAG", key: null });
+    setLineStatus.mutate({ orderId, lineId: line.id, action });
+  };
+
   return (
     <div
       className="flex flex-col gap-2.5 rounded-[14px] border-[1.5px] p-3 px-3.5 transition-colors"
@@ -35,7 +49,7 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
     >
       <div className="flex items-center gap-3.5">
         <button
-          onClick={() => dispatch({ type: "TOGGLE_LINE", orderId: order.id, idx })}
+          onClick={() => runAction("toggle")}
           aria-label="Valider le produit"
           className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full border-[2.5px] transition-all"
           style={{ borderColor: checkBorder, background: isDone ? "var(--gnanam-success)" : "#fff" }}
@@ -48,7 +62,7 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
           </div>
           <div className="mt-0.5 text-[13px] text-[var(--gnanam-gray-600)]">
             {line.qty} × {p.unit.toLowerCase()}
-            {SETTINGS.showPricesInPrep && <> · {eur(p.price * line.qty)} HT</>}
+            {SETTINGS.showPricesInPrep && <> · {eur((line.unitPriceCents * line.qty) / 100)} HT</>}
           </div>
         </div>
         {(isPartial || isMissing) && (
@@ -63,7 +77,7 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
           </span>
         )}
         <button
-          onClick={() => dispatch({ type: "TOGGLE_FLAG", key })}
+          onClick={() => dispatch({ type: "SET_FLAG", key: flagOpen ? null : line.id })}
           aria-label="Signaler un problème"
           className="flex h-11 w-[38px] shrink-0 items-center justify-center text-[var(--gnanam-gray-400)] hover:text-[var(--gnanam-teal-900)]"
         >
@@ -79,19 +93,19 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
           className="flex flex-wrap gap-2"
         >
           <button
-            onClick={() => dispatch({ type: "SET_LINE_PARTIAL", orderId: order.id, idx })}
+            onClick={() => runAction("partial")}
             className="min-h-11 rounded-[10px] border-[1.5px] border-[var(--gnanam-amber-border)] bg-[var(--gnanam-amber-bg)] px-3.5 text-[13px] font-bold text-[var(--gnanam-amber)]"
           >
             Quantité partielle
           </button>
           <button
-            onClick={() => dispatch({ type: "SET_LINE_MISSING", orderId: order.id, idx })}
+            onClick={() => runAction("missing")}
             className="min-h-11 rounded-[10px] border-[1.5px] border-[var(--gnanam-error-border)] bg-[var(--gnanam-error-bg)] px-3.5 text-[13px] font-bold text-[var(--gnanam-error)]"
           >
             Produit manquant
           </button>
           <button
-            onClick={() => dispatch({ type: "RESET_LINE", orderId: order.id, idx })}
+            onClick={() => runAction("reset")}
             className="min-h-11 rounded-[10px] border-[1.5px] border-[var(--gnanam-border)] bg-white px-3.5 text-[13px] font-semibold text-[var(--gnanam-gray-600)]"
           >
             Annuler
@@ -103,7 +117,7 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
         <div className="flex items-center gap-2.5 rounded-[10px] bg-[var(--gnanam-amber-bg)] px-3 py-2.5">
           <span className="text-[13px] font-semibold text-[var(--gnanam-amber)]">Quantité préparée :</span>
           <button
-            onClick={() => dispatch({ type: "DEC_PICKED", orderId: order.id, idx })}
+            onClick={() => adjustPicked.mutate({ orderId, lineId: line.id, delta: -1 })}
             className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border-[1.5px] border-[var(--gnanam-amber-border)] bg-white font-extrabold text-[var(--gnanam-amber)]"
           >
             <Minus size={16} />
@@ -112,7 +126,7 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
             {line.picked} / {line.qty}
           </span>
           <button
-            onClick={() => dispatch({ type: "INC_PICKED", orderId: order.id, idx })}
+            onClick={() => adjustPicked.mutate({ orderId, lineId: line.id, delta: 1 })}
             className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px] border-[1.5px] border-[var(--gnanam-amber-border)] bg-white font-extrabold text-[var(--gnanam-amber)]"
           >
             <Plus size={16} />
@@ -123,15 +137,20 @@ function LineRow({ order, idx, line }: { order: Order; idx: number; line: OrderL
   );
 }
 
-export function PrepPick() {
-  const { state, dispatch } = useGnanamStore();
+export function PrepPick({ order }: { order: Order }) {
+  const { dispatch } = useGnanamStore();
   const isDesktop = useIsDesktop();
-  const order = state.orders.find((o) => o.id === state.activeOrderId);
-  if (!order) return null;
+  const utils = api.useUtils();
+  const finish = api.preparation.finish.useMutation({
+    onSuccess: () => {
+      utils.orders.today.invalidate();
+      dispatch({ type: "BACK_TO_PREP_LIST" });
+    },
+  });
 
-  const groups = zonesOf(order, SETTINGS.groupByZone);
+  const groups = zonesOf(order.lines, SETTINGS.groupByZone);
   const totalCount = order.lines.length;
-  const doneCount = order.lines.filter((l) => l.status !== "pending").length;
+  const doneCount = order.lines.filter((l) => l.status !== LineStatus.pending).length;
   const progressPct = Math.round((doneCount / totalCount) * 100);
   const allResolved = doneCount === totalCount && order.status === "picking";
 
@@ -146,9 +165,9 @@ export function PrepPick() {
             <ArrowLeft size={18} strokeWidth={2.5} />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="text-[17px] font-bold">{order.client}</div>
+            <div className="text-[17px] font-bold">{order.customer.name}</div>
             <div className="text-[12.5px] text-[var(--gnanam-muted-teal)]">
-              {order.id} · {plural(groups.length, "caddie")} à constituer
+              CMD-{order.seq} · {plural(groups.length, "caddie")} à constituer
             </div>
           </div>
           {SETTINGS.scanEnabled && (
@@ -191,7 +210,7 @@ export function PrepPick() {
                 </div>
                 <div className="flex flex-col gap-2">
                   {g.idxs.map((i) => (
-                    <LineRow key={i} order={order} idx={i} line={order.lines[i]} />
+                    <LineRow key={order.lines[i].id} orderId={order.id} line={order.lines[i]} />
                   ))}
                 </div>
               </div>
@@ -209,8 +228,9 @@ export function PrepPick() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            onClick={() => dispatch({ type: "FINISH_ORDER" })}
-            className="pointer-events-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-2xl bg-[var(--gnanam-success)] py-4.5 text-base font-bold text-white shadow-[0_14px_34px_rgba(46,125,79,.4)] hover:bg-[var(--gnanam-success-hover)]"
+            onClick={() => finish.mutate({ orderId: order.id })}
+            disabled={finish.isPending}
+            className="pointer-events-auto flex w-full max-w-[520px] items-center justify-center gap-3 rounded-2xl bg-[var(--gnanam-success)] py-4.5 text-base font-bold text-white shadow-[0_14px_34px_rgba(46,125,79,.4)] hover:bg-[var(--gnanam-success-hover)] disabled:opacity-70"
           >
             <Check size={20} strokeWidth={3} />
             Commande prête pour livraison

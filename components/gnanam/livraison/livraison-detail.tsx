@@ -2,18 +2,27 @@
 
 import { ArrowLeft } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { ZONE_COLORS } from "@/lib/gnanam/data";
+import { api } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
+import { ZONE_COLORS, ZONE_SHORT_LABELS } from "@/lib/gnanam/data";
 import { zonesOf } from "@/lib/gnanam/utils";
 import { SETTINGS } from "@/lib/gnanam/settings";
-import type { Zone } from "@/lib/gnanam/types";
+import type { Zone } from "@/lib/generated/prisma/enums";
 
-export function LivraisonDetail() {
+type Order = RouterOutputs["orders"]["today"][number];
+
+export function LivraisonDetail({ stop }: { stop: Order }) {
   const { state, dispatch } = useGnanamStore();
-  const stop = state.orders.find((o) => o.id === state.activeStopId);
-  if (!stop) return null;
+  const utils = api.useUtils();
+  const confirmDelivery = api.livraison.confirmDelivery.useMutation({
+    onSuccess: () => {
+      utils.orders.today.invalidate();
+      dispatch({ type: "BACK_TO_STOPS" });
+    },
+  });
 
   const signed = !!state.signed[stop.id];
-  const caddies = zonesOf(stop, SETTINGS.groupByZone);
+  const caddies = zonesOf(stop.lines, SETTINGS.groupByZone);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -25,7 +34,7 @@ export function LivraisonDetail() {
           <ArrowLeft size={18} strokeWidth={2.5} />
         </button>
         <div>
-          <div className="text-[17px] font-bold">{stop.client}</div>
+          <div className="text-[17px] font-bold">{stop.customer.name}</div>
           <div className="text-[12.5px] text-[var(--gnanam-muted-teal)]">{stop.address}</div>
         </div>
       </div>
@@ -50,7 +59,7 @@ export function LivraisonDetail() {
                     >
                       Caddie {gi + 1}
                     </span>
-                    <span className="text-sm font-semibold">{g.zone}</span>
+                    <span className="text-sm font-semibold">{ZONE_SHORT_LABELS[g.zone as Zone] ?? g.zone}</span>
                     <span className="ml-auto text-[13px] text-[var(--gnanam-gray-600)]">{g.idxs.length} produits</span>
                   </div>
                 );
@@ -76,8 +85,8 @@ export function LivraisonDetail() {
           </div>
 
           <button
-            onClick={() => dispatch({ type: "CONFIRM_DELIVERY" })}
-            disabled={!signed}
+            onClick={() => confirmDelivery.mutate({ orderId: stop.id })}
+            disabled={!signed || confirmDelivery.isPending}
             className="rounded-2xl py-4.5 text-base font-bold"
             style={{
               background: signed ? "var(--gnanam-success)" : "var(--gnanam-border)",

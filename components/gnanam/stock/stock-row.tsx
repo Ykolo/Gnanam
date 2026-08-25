@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Minus, Plus, PackagePlus, Check, X } from "lucide-react";
-import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct, ZONE_COLORS } from "@/lib/gnanam/data";
-import { LEVEL_STYLES, type StockRow as StockRowData } from "@/lib/gnanam/stock";
+import { api } from "@/lib/trpc/client";
+import type { RouterOutputs } from "@/lib/trpc/client";
+import { ZONE_COLORS, ZONE_SHORT_LABELS } from "@/lib/gnanam/data";
+import { LEVEL_STYLES } from "@/lib/gnanam/stock";
+
+type StockRowData = RouterOutputs["stock"]["list"][number];
 
 function Stat({ label, value, color }: { label: string; value: number; color?: string }) {
   return (
@@ -26,19 +29,20 @@ function Stat({ label, value, color }: { label: string; value: number; color?: s
 }
 
 export function StockRow({ row }: { row: StockRowData }) {
-  const { dispatch } = useGnanamStore();
+  const utils = api.useUtils();
+  const receive = api.stock.receive.useMutation({ onSuccess: () => utils.stock.invalidate() });
+  const adjust = api.stock.adjust.useMutation({ onSuccess: () => utils.stock.invalidate() });
   const [receiving, setReceiving] = useState(false);
   const [input, setInput] = useState("");
 
-  const p = findProduct(row.pid);
-  const [zoneBg, zoneFg] = ZONE_COLORS[p.zone];
+  const [zoneBg, zoneFg] = ZONE_COLORS[row.zone];
   const level = LEVEL_STYLES[row.level];
   // 100 % de la barre = deux fois le seuil de réappro, soit un stock confortable.
-  const pct = Math.max(0, Math.min(100, Math.round((row.available / Math.max(1, row.min * 2)) * 100)));
+  const pct = Math.max(0, Math.min(100, Math.round((row.available / Math.max(1, row.minStock * 2)) * 100)));
 
   const confirmReception = () => {
     const qty = parseInt(input, 10);
-    if (Number.isFinite(qty) && qty > 0) dispatch({ type: "RECEIVE_STOCK", pid: row.pid, qty });
+    if (Number.isFinite(qty) && qty > 0) receive.mutate({ productId: row.id, qty });
     setInput("");
     setReceiving(false);
   };
@@ -47,16 +51,16 @@ export function StockRow({ row }: { row: StockRowData }) {
     <div className="flex flex-col gap-3 rounded-2xl border border-[var(--gnanam-border-softer)] bg-white p-3.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]">
       <div className="flex flex-wrap items-start gap-2.5">
         <div className="min-w-[150px] flex-1">
-          <div className="text-[14.5px] leading-tight font-bold">{p.name}</div>
+          <div className="text-[14.5px] leading-tight font-bold">{row.name}</div>
           <div className="mt-0.5 text-[12.5px] text-[var(--gnanam-gray-400)]">
-            {p.unit} · réf. {p.id.toUpperCase().replace("P", "GE-10")}
+            {row.unit} · réf. {row.sku.toUpperCase().replace("P", "GE-10")}
           </div>
         </div>
         <span
           className="rounded-full px-2.5 py-1 text-[11px] font-extrabold tracking-wide uppercase"
           style={{ background: zoneBg, color: zoneFg }}
         >
-          {p.zone}
+          {ZONE_SHORT_LABELS[row.zone]}
         </span>
         <span
           className="rounded-full px-2.5 py-1 text-[11.5px] font-bold whitespace-nowrap"
@@ -67,7 +71,7 @@ export function StockRow({ row }: { row: StockRowData }) {
       </div>
 
       <div className="flex gap-2">
-        <Stat label="Physique" value={row.qty} />
+        <Stat label="Physique" value={row.quantity} />
         <Stat label="Réservé" value={row.reserved} color="var(--gnanam-gray-600)" />
         <Stat label="Disponible" value={row.available} color={level.fg} />
       </div>
@@ -80,11 +84,11 @@ export function StockRow({ row }: { row: StockRowData }) {
           />
         </div>
         <div className="mt-1.5 text-[11.5px] text-[var(--gnanam-gray-400)]">
-          Seuil de réappro : {row.min} colis
-          {row.available < row.min && (
+          Seuil de réappro : {row.minStock} colis
+          {row.available < row.minStock && (
             <span className="font-bold" style={{ color: level.fg }}>
               {" "}
-              · commander {row.min * 2 - row.available} colis
+              · commander {row.minStock * 2 - row.available} colis
             </span>
           )}
         </div>
@@ -109,7 +113,7 @@ export function StockRow({ row }: { row: StockRowData }) {
               if (e.key === "Escape") setReceiving(false);
             }}
             placeholder="Colis reçus"
-            aria-label={`Colis reçus pour ${p.name}`}
+            aria-label={`Colis reçus pour ${row.name}`}
             className="min-h-11 min-w-0 flex-1 rounded-[10px] border-[1.5px] border-[var(--gnanam-border)] bg-[var(--gnanam-cream-card)] px-3 text-sm font-semibold outline-none focus:border-[var(--gnanam-gold)]"
           />
           <button
@@ -130,16 +134,16 @@ export function StockRow({ row }: { row: StockRowData }) {
       ) : (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => dispatch({ type: "ADJUST_STOCK", pid: row.pid, delta: -1 })}
-            disabled={row.qty === 0}
-            aria-label={`Retirer un colis de ${p.name}`}
+            onClick={() => adjust.mutate({ productId: row.id, delta: -1 })}
+            disabled={row.quantity === 0}
+            aria-label={`Retirer un colis de ${row.name}`}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border-[1.5px] border-[var(--gnanam-border)] bg-white font-bold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-cream)] disabled:opacity-40"
           >
             <Minus size={16} strokeWidth={2.6} />
           </button>
           <button
-            onClick={() => dispatch({ type: "ADJUST_STOCK", pid: row.pid, delta: 1 })}
-            aria-label={`Ajouter un colis à ${p.name}`}
+            onClick={() => adjust.mutate({ productId: row.id, delta: 1 })}
+            aria-label={`Ajouter un colis à ${row.name}`}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] border-[1.5px] border-[var(--gnanam-border)] bg-white font-bold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-cream)]"
           >
             <Plus size={16} strokeWidth={2.6} />

@@ -3,10 +3,11 @@
 import { useMemo } from "react";
 import { Search, AlertTriangle } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
-import { findProduct } from "@/lib/gnanam/data";
-import { stockRows, stockValue } from "@/lib/gnanam/stock";
+import { api, LIVE } from "@/lib/trpc/client";
+import { CATEGORY_LABELS } from "@/lib/gnanam/data";
 import { normalize, eur, todayLabel } from "@/lib/gnanam/utils";
 import { useLiveClock } from "@/lib/gnanam/use-live-clock";
+import { Zone } from "@/lib/generated/prisma/enums";
 import type { StockFilter, StockLevel } from "@/lib/gnanam/types";
 import { StockRow } from "./stock-row";
 import { StockMoves } from "./stock-moves";
@@ -14,9 +15,9 @@ import { StockMoves } from "./stock-moves";
 const FILTERS: { id: StockFilter; label: string }[] = [
   { id: "all", label: "Toutes les références" },
   { id: "alert", label: "Alertes" },
-  { id: "Frais", label: "Frais" },
-  { id: "Sec", label: "Sec" },
-  { id: "Surgelé", label: "Surgelé" },
+  { id: Zone.Frais, label: "Frais" },
+  { id: Zone.Sec, label: "Sec" },
+  { id: Zone.Surgele, label: "Surgelé" },
 ];
 
 const LEVEL_RANK: Record<StockLevel, number> = { rupture: 0, critique: 1, ok: 2 };
@@ -35,26 +36,26 @@ function Kpi({ label, value, tone }: { label: string; value: string; tone?: stri
 export function StockModule() {
   const { state, dispatch } = useGnanamStore();
   const clock = useLiveClock();
+  const { data: rows } = api.stock.list.useQuery(undefined, LIVE);
 
-  const rows = useMemo(() => stockRows(state.stock, state.orders), [state.stock, state.orders]);
-  const ruptures = rows.filter((r) => r.level === "rupture").length;
-  const critiques = rows.filter((r) => r.level === "critique").length;
-  const value = useMemo(() => stockValue(state.stock), [state.stock]);
+  const all = useMemo(() => rows ?? [], [rows]);
+  const ruptures = all.filter((r) => r.level === "rupture").length;
+  const critiques = all.filter((r) => r.level === "critique").length;
+  const value = useMemo(() => all.reduce((total, r) => total + (r.priceCents * r.quantity) / 100, 0), [all]);
 
   const visible = useMemo(() => {
     const q = normalize(state.stockSearch.trim());
-    return rows
+    return all
       .filter((r) => {
-        const p = findProduct(r.pid);
         if (state.stockFilter === "alert" && r.level === "ok") return false;
-        if (state.stockFilter !== "all" && state.stockFilter !== "alert" && p.zone !== state.stockFilter) return false;
-        return !q || normalize(p.name).includes(q) || normalize(p.cat).includes(q);
+        if (state.stockFilter !== "all" && state.stockFilter !== "alert" && r.zone !== state.stockFilter) return false;
+        return !q || normalize(r.name).includes(q) || normalize(CATEGORY_LABELS[r.category]).includes(q);
       })
       .sort((a, b) => {
         const rank = LEVEL_RANK[a.level] - LEVEL_RANK[b.level];
-        return rank !== 0 ? rank : findProduct(a.pid).name.localeCompare(findProduct(b.pid).name, "fr");
+        return rank !== 0 ? rank : a.name.localeCompare(b.name, "fr");
       });
-  }, [rows, state.stockFilter, state.stockSearch]);
+  }, [all, state.stockFilter, state.stockSearch]);
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
@@ -83,7 +84,7 @@ export function StockModule() {
 
       <div className="flex-1 overflow-y-auto px-6 pt-4 pb-28">
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-          <Kpi label="Références" value={String(rows.length)} />
+          <Kpi label="Références" value={String(all.length)} />
           <Kpi label="Valeur stock" value={eur(value)} />
           <Kpi
             label="Sous le seuil"
@@ -131,7 +132,7 @@ export function StockModule() {
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_330px]">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
             {visible.map((row) => (
-              <StockRow key={row.pid} row={row} />
+              <StockRow key={row.id} row={row} />
             ))}
             {visible.length === 0 && (
               <div className="py-12 text-center text-[14.5px] text-[var(--gnanam-gray-400)]">
