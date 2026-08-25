@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { api, LIVE } from "@/lib/trpc/client";
 import { STOCK_MOVE_LABELS } from "@/lib/gnanam/data";
+import { formatParisTime } from "@/lib/gnanam/timezone";
 import { useLiveClock } from "@/lib/gnanam/use-live-clock";
 
 export function StockMoves() {
@@ -62,9 +63,7 @@ export function StockMoves() {
                     {isIn ? "+" : "−"}
                     {Math.abs(m.delta)}
                   </div>
-                  <div className="text-[11px] text-[var(--gnanam-gray-400)]">
-                    {m.createdAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                  </div>
+                  <div className="text-[11px] text-[var(--gnanam-gray-400)]">{formatParisTime(m.createdAt)}</div>
                 </div>
               </motion.div>
             );

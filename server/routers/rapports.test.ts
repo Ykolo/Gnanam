@@ -15,11 +15,11 @@ describe("rapports.summary — période jour", () => {
   it("agrège commandes, CA, préparation, conformité et écarts sur la journée", async () => {
     // Mercredi 19 août 2026, 15h : la journée en cours va de minuit à maintenant.
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 19, 15, 0, 0));
+    vi.setSystemTime(new Date("2026-08-19T13:00:00Z")); // 15 h à Paris
 
     const orderA = {
-      createdAt: new Date(2026, 7, 19, 9, 0),
-      readyAt: new Date(2026, 7, 19, 9, 20),
+      createdAt: new Date("2026-08-19T07:00:00Z"), // 09:00 à Paris
+      readyAt: new Date("2026-08-19T07:20:00Z"), // 09:20 à Paris, soit 20 min de préparation
       lines: [
         {
           productId: "p1",
@@ -32,7 +32,7 @@ describe("rapports.summary — période jour", () => {
       ],
     };
     const orderB = {
-      createdAt: new Date(2026, 7, 19, 10, 30),
+      createdAt: new Date("2026-08-19T08:30:00Z"), // 10:30 à Paris
       readyAt: null,
       lines: [
         {
@@ -54,12 +54,12 @@ describe("rapports.summary — période jour", () => {
       ],
     };
     const clearanceRecent = {
-      at: new Date(2026, 7, 19, 11, 0),
+      at: new Date("2026-08-19T09:00:00Z"), // 11:00 à Paris
       conform: false,
       order: { customer: { name: "Client B" } },
     };
     const clearanceEarlier = {
-      at: new Date(2026, 7, 19, 9, 30),
+      at: new Date("2026-08-19T07:30:00Z"), // 09:30 à Paris
       conform: true,
       order: { customer: { name: "Client A" } },
     };
@@ -113,9 +113,28 @@ describe("rapports.summary — période jour", () => {
     ]);
   });
 
+  it("borne la journée sur Paris et non sur UTC", async () => {
+    // 00:30 UTC le 20 août = 02:30 à Paris : on est déjà le 20 des deux côtés,
+    // mais la journée parisienne a commencé à 22:00 UTC la veille, pas à minuit UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-20T00:30:00Z"));
+
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma = {
+      order: { findMany, count: vi.fn().mockResolvedValue(0) },
+      orderLine: { aggregate: vi.fn().mockResolvedValue({ _sum: { picked: null } }) },
+      securityClearance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+
+    const report = await caller(prisma).summary({ period: "jour" });
+
+    expect(report.rangeLabel).toBe("Journalier — jeudi 20 août 2026");
+    expect(findMany.mock.calls[0][0].where.createdAt.gte.toISOString()).toBe("2026-08-19T22:00:00.000Z");
+  });
+
   it("affiche des tirets plutôt qu'une division par zéro sans donnée", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 19, 15, 0, 0));
+    vi.setSystemTime(new Date("2026-08-19T13:00:00Z")); // 15 h à Paris
 
     const prisma = {
       order: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn().mockResolvedValue(0) },
@@ -143,7 +162,7 @@ describe("rapports.summary — périodes semaine et mois", () => {
 
   it("bascule le sous-titre du graphe et le libellé de plage sur la semaine", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 19, 15, 0, 0));
+    vi.setSystemTime(new Date("2026-08-19T13:00:00Z")); // 15 h à Paris
 
     const report = await caller(emptyPrisma).summary({ period: "semaine" });
 
@@ -153,7 +172,7 @@ describe("rapports.summary — périodes semaine et mois", () => {
 
   it("bascule le sous-titre du graphe et le libellé de plage sur le mois", async () => {
     vi.useFakeTimers();
-    vi.setSystemTime(new Date(2026, 7, 19, 15, 0, 0));
+    vi.setSystemTime(new Date("2026-08-19T13:00:00Z")); // 15 h à Paris
 
     const report = await caller(emptyPrisma).summary({ period: "mois" });
 

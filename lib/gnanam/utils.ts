@@ -1,4 +1,5 @@
 import { Zone } from "@/lib/generated/prisma/enums";
+import { formatParisDate } from "./timezone";
 
 export function eur(n: number): string {
   return n.toFixed(2).replace(".", ",") + " €";
@@ -68,9 +69,5 @@ export function zonesOf(lines: { product: { zone: Zone } }[], groupByZone: boole
 }
 
 export function todayLabel(): string {
-  return new Date().toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
+  return formatParisDate(new Date(), { weekday: "long", day: "numeric", month: "long" });
 }

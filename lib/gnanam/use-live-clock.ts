@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TZ } from "./timezone";
 
 /**
  * Horloge locale rafraîchie chaque seconde. Renvoie `null` avant le montage
@@ -12,7 +13,12 @@ export function useLiveClock(): string | null {
   useEffect(() => {
     const tick = () =>
       setTime(
-        new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+        new Date().toLocaleTimeString("fr-FR", {
+          timeZone: TZ,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        })
       );
     tick();
     const id = setInterval(tick, 1000);

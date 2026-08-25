@@ -4,6 +4,7 @@ import { Search, ScanLine } from "lucide-react";
 import { useGnanamStore } from "@/lib/gnanam/store";
 import type { RouterOutputs } from "@/lib/trpc/client";
 import { zonesOf, normalize, plural } from "@/lib/gnanam/utils";
+import { formatParisTime } from "@/lib/gnanam/timezone";
 import { SETTINGS } from "@/lib/gnanam/settings";
 
 type Order = RouterOutputs["orders"]["today"][number];
@@ -65,9 +66,7 @@ export function SecList({ orders, isLoading }: { orders: Order[]; isLoading: boo
                     color: controlled ? "var(--gnanam-success)" : "var(--gnanam-amber)",
                   }}
                 >
-                  {controlled
-                    ? `Sortie autorisée · ${o.clearance!.at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-                    : "À contrôler"}
+                  {controlled ? `Sortie autorisée · ${formatParisTime(o.clearance!.at)}` : "À contrôler"}
                 </span>
               </div>
               {!controlled && (

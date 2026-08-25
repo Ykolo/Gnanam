@@ -1,33 +1,29 @@
 import { z } from "zod";
 import { adminProcedure, router } from "@/server/trpc";
 import { LineStatus } from "@/lib/generated/prisma/enums";
+import {
+  TZ,
+  formatParisDate,
+  formatParisTime,
+  parisParts,
+  parisWeekday,
+  startOfParisDay,
+  startOfParisMonth,
+  startOfParisWeek,
+} from "@/lib/gnanam/timezone";
 
 type Period = "jour" | "semaine" | "mois";
 type Trend = "up" | "down" | "flat";
 
-function startOfDay(d: Date): Date {
-  const c = new Date(d);
-  c.setHours(0, 0, 0, 0);
-  return c;
-}
-
-function startOfWeek(d: Date): Date {
-  const c = startOfDay(d);
-  const day = c.getDay();
-  c.setDate(c.getDate() + (day === 0 ? -6 : 1 - day));
-  return c;
-}
-
-function startOfMonth(d: Date): Date {
-  const c = startOfDay(d);
-  c.setDate(1);
-  return c;
-}
-
+/**
+ * Toutes les bornes sont calculées à l'heure de Paris : sur Vercel le processus
+ * tourne en UTC, et un rapport « journalier » qui bascule à 2 h du matin heure
+ * française n'aurait aucun sens pour l'entrepôt.
+ */
 function rangeFor(period: Period, now: Date): { start: Date; end: Date } {
-  if (period === "jour") return { start: startOfDay(now), end: now };
-  if (period === "semaine") return { start: startOfWeek(now), end: now };
-  return { start: startOfMonth(now), end: now };
+  if (period === "jour") return { start: startOfParisDay(now), end: now };
+  if (period === "semaine") return { start: startOfParisWeek(now), end: now };
+  return { start: startOfParisMonth(now), end: now };
 }
 
 /** Fenêtre de même durée immédiatement avant, pour donner un point de comparaison aux KPI. */
@@ -51,24 +47,23 @@ function eur(cents: number): string {
 
 function rangeLabel(period: Period, start: Date): string {
   if (period === "jour") {
-    return `Journalier — ${start.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`;
+    return `Journalier — ${formatParisDate(start, { weekday: "long", day: "numeric", month: "long", year: "numeric" })}`;
   }
   if (period === "semaine") {
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const fmt = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
-    return `Hebdomadaire — semaine du ${fmt(start)} au ${fmt(end)} ${end.getFullYear()}`;
+    const end = new Date(start.getTime() + 6 * 86_400_000);
+    const fmt = (d: Date) => formatParisDate(d, { day: "numeric", month: "long" });
+    return `Hebdomadaire — semaine du ${fmt(start)} au ${fmt(end)} ${parisParts(end).year}`;
   }
-  return `Mensuel — ${start.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`;
+  return `Mensuel — ${formatParisDate(start, { month: "long", year: "numeric" })}`;
 }
 
 function controlTime(period: Period, d: Date): string {
-  if (period === "jour") return d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  if (period === "jour") return formatParisTime(d);
   if (period === "semaine") {
-    const day = d.toLocaleDateString("fr-FR", { weekday: "short" });
-    return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+    const day = d.toLocaleDateString("fr-FR", { timeZone: TZ, weekday: "short" });
+    return `${day.charAt(0).toUpperCase()}${day.slice(1)} ${formatParisTime(d)}`;
   }
-  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  return `${formatParisDate(d, { day: "2-digit", month: "2-digit" })} ${formatParisTime(d)}`;
 }
 
 export const rapportsRouter = router({
@@ -130,19 +125,21 @@ export const rapportsRouter = router({
     ];
 
     const bars: { label: string; value: number }[] = [];
+    const caOf = (o: (typeof orders)[number]) => o.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0);
+
     if (input.period === "jour") {
       const byHour = new Map<number, number>();
       for (const o of orders) {
-        const h = o.createdAt.getHours();
-        byHour.set(h, (byHour.get(h) ?? 0) + o.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0));
+        const h = parisParts(o.createdAt).hour;
+        byHour.set(h, (byHour.get(h) ?? 0) + caOf(o));
       }
       for (const h of [...byHour.keys()].sort((a, b) => a - b)) bars.push({ label: `${h}h`, value: Math.round((byHour.get(h) ?? 0) / 100) });
     } else if (input.period === "semaine") {
       const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
       const byDay = new Map<number, number>();
       for (const o of orders) {
-        const d = o.createdAt.getDay();
-        byDay.set(d, (byDay.get(d) ?? 0) + o.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0));
+        const d = parisWeekday(o.createdAt);
+        byDay.set(d, (byDay.get(d) ?? 0) + caOf(o));
       }
       for (const d of [1, 2, 3, 4, 5, 6, 0]) {
         if (byDay.has(d)) bars.push({ label: days[d], value: Math.round((byDay.get(d) ?? 0) / 100) });
@@ -150,8 +147,8 @@ export const rapportsRouter = router({
     } else {
       const byWeek = new Map<number, number>();
       for (const o of orders) {
-        const w = Math.floor((o.createdAt.getDate() - 1) / 7);
-        byWeek.set(w, (byWeek.get(w) ?? 0) + o.lines.reduce((s, l) => s + l.qty * l.unitPriceCents, 0));
+        const w = Math.floor((parisParts(o.createdAt).day - 1) / 7);
+        byWeek.set(w, (byWeek.get(w) ?? 0) + caOf(o));
       }
       for (const w of [...byWeek.keys()].sort((a, b) => a - b)) bars.push({ label: `Sem. ${w + 1}`, value: Math.round((byWeek.get(w) ?? 0) / 100) });
     }
