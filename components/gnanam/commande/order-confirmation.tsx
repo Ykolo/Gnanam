@@ -22,7 +22,9 @@ export function OrderConfirmation() {
         <div className="mb-1.5 text-[14.5px] leading-relaxed text-[var(--gnanam-gray-600)]">
           Votre commande <strong>{state.lastOrderId}</strong> a été transmise à l&apos;entrepôt GNANAM EXO.
         </div>
-        <div className="mb-6 text-[13.5px] text-[var(--gnanam-gray-400)]">Livraison prévue demain, 6h – 12h.</div>
+        <div className="mb-6 text-[13.5px] text-[var(--gnanam-gray-400)]">
+          Livraison prévue demain, créneau {state.deliveryWindow}.
+        </div>
         <button
           onClick={() => dispatch({ type: "NEW_ORDER" })}
           className="rounded-xl bg-[var(--gnanam-teal-900)] px-6.5 py-3.5 text-[15px] font-semibold text-[var(--gnanam-cream-text)] hover:bg-[var(--gnanam-teal-700)]"

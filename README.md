@@ -15,11 +15,13 @@ ceux qui le concernent.
 
 | Module | Rôle qui y accède | À quoi il sert |
 | --- | --- | --- |
-| **Commander** | Client B2B, Admin | Catalogue, panier, envoi de la commande |
+| **Commander** | Client B2B, Admin | Catalogue, panier, choix du créneau, envoi de la commande |
+| **Mes commandes** | Client B2B, Admin | Historique de l'établissement, détail ligne à ligne |
 | **Préparation** | Entrepôt, Admin | Pointage des lignes, constitution des caddies |
 | **Contrôle sortie** | Sécurité, Admin | Visa avant que la marchandise quitte le dépôt |
 | **Livraison** | Entrepôt, Admin | Tournée du jour, signature client |
 | **Stock dépôt** | Entrepôt, Admin | Stock physique, réservé, disponible, réceptions |
+| **Références** | Admin | Administration du catalogue produits |
 | **Rapports** | Admin | CA, conformité, ruptures, top produits |
 
 L'admin traverse tous les postes : c'est le profil de démonstration, il permet de
@@ -27,15 +29,18 @@ rejouer le parcours complet sans changer de compte.
 
 ## Le parcours d'une commande
 
-1. **Le client** remplit son panier et valide → la commande est créée avec le statut
-   *à préparer*. Le prix et l'adresse sont **figés à cet instant**, pour que
-   l'historique des rapports ne bouge pas si un tarif ou un client change ensuite.
+1. **Le client** remplit son panier, choisit un créneau de livraison et valide → la
+   commande est créée avec le statut *à préparer*. Le prix et l'adresse sont **figés
+   à cet instant**, pour que l'historique des rapports ne bouge pas si un tarif ou
+   un client change ensuite. Il retrouve la commande dans *Mes commandes*.
 2. **L'entrepôt** ouvre la commande (statut *en cours*), puis pointe chaque ligne :
    validée, partielle ou manquante. Chaque validation **sort la marchandise du stock**
    et l'inscrit au journal des mouvements, dans la même transaction. Une fois toutes
    les lignes traitées, la commande passe *prête*.
-3. **La sécurité** vérifie le caddie ligne par ligne et **autorise la sortie**. Une
-   commande ne peut recevoir qu'un seul visa.
+3. **La sécurité** vérifie le caddie ligne par ligne et **autorise la sortie**. Si
+   quelque chose cloche, elle enregistre plutôt un **écart motivé** : la marchandise
+   part quand même, mais le visa est tracé comme non conforme et remonte dans les
+   rapports. Une commande ne peut recevoir qu'un seul visa.
 4. **L'entrepôt** fait signer le client et **confirme la livraison** → statut *livrée*.
 5. **Stock et Rapports** reflètent tout ça en direct : les écrans partagés se
    resynchronisent toutes les 5 secondes.
@@ -143,7 +148,7 @@ prisma/
 **Stack :** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 ·
 Prisma 7 + Postgres (Neon) · Better Auth · tRPC 11 + TanStack Query · Vitest
 
-### Trois partis pris
+### Quatre partis pris
 
 - **Le rôle vient toujours de la session serveur**, jamais du corps de la requête.
   Chaque procédure tRPC est protégée par un middleware de rôle.
@@ -151,6 +156,13 @@ Prisma 7 + Postgres (Neon) · Better Auth · tRPC 11 + TanStack Query · Vitest
   flottant dérivent.
 - **Le client ne garde que l'état d'interface** (panier en cours, filtres, écran
   ouvert). Commandes, stock et rapports viennent du serveur.
+- **Les dates métier sont raisonnées à l'heure de Paris**, jamais à celle de la
+  machine. Les fonctions Vercel tournent en UTC : sans ce fuseau explicite, la
+  journée basculerait à 2 h du matin heure française. Voir
+  [lib/gnanam/timezone.ts](lib/gnanam/timezone.ts), couvert par des tests qui
+  incluent les nuits de changement d'heure.
+- **Une référence n'est jamais supprimée, seulement désactivée** : les commandes
+  passées la référencent et l'historique doit rester lisible.
 
 ---
 
@@ -166,15 +178,14 @@ Variables à configurer côté Vercel : `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
 
 ## Limites connues
 
-- **Fuseau horaire.** Les fonctions Vercel tournent en UTC. Le rapport journalier
-  et la file « commandes du jour » basculent donc à 2 h du matin heure française
-  plutôt qu'à minuit. Les calculs de date devraient forcer `Europe/Paris`.
-- **Authentification en preview.** `BETTER_AUTH_URL` n'est défini qu'en production.
-  Les déploiements de preview, dont l'URL est dynamique, nécessiteraient de dériver
-  l'URL depuis `VERCEL_URL`.
-- **Créneau de livraison figé** à « 8h – 11h » : le sélecteur côté client reste à
-  faire.
-- **Écart au contrôle sortie non exposé.** La base et l'API acceptent un visa non
-  conforme avec commentaire, mais l'interface ne propose pas encore le bouton.
-- **Pas d'administration du catalogue.** Produits, clients et comptes se gèrent via
-  le seed ou Prisma Studio.
+- **Pas de tests end-to-end** ni de tests de composants : la suite couvre les
+  fonctions pures, le reducer et la logique des routeurs tRPC.
+- **Pas d'intégration continue.** Lint, typecheck et tests ne tournent qu'en local.
+- **Clients et comptes ne s'administrent pas depuis l'application** — seul le
+  catalogue produits le fait. Ils se gèrent via le seed ou Prisma Studio.
+- **L'admin ne peut pas commander** : le module *Commander* lui est visible, mais
+  son compte n'est rattaché à aucun établissement, donc la validation renvoie une
+  erreur explicite. Seul un compte client peut passer commande.
+- **Piège Better Auth** : sa CLI (1.4.21) est en retard sur la bibliothèque (1.7.0)
+  et omet la colonne `account.issuer`, ajoutée à la main. Relancer
+  `bunx @better-auth/cli generate` la supprimerait.

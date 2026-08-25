@@ -15,8 +15,8 @@ function stockRow(level: "rupture" | "critique" | "ok") {
 }
 
 describe("modulesOf", () => {
-  it("limite le client au module commande", () => {
-    expect(modulesOf("client")).toEqual(["commande"]);
+  it("limite le client à la commande et à son historique", () => {
+    expect(modulesOf("client")).toEqual(["commande", "historique"]);
   });
 
   it("donne à l'entrepôt préparation, stock et livraison", () => {
@@ -26,10 +26,12 @@ describe("modulesOf", () => {
   it("donne à l'admin tous les modules", () => {
     expect(modulesOf("admin")).toEqual([
       "commande",
+      "historique",
       "preparation",
       "securite",
       "livraison",
       "stock",
+      "references",
       "rapports",
     ]);
   });

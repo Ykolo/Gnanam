@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { clientProcedure, opsProcedure, router } from "@/server/trpc";
+import { startOfParisDay } from "@/lib/gnanam/timezone";
+import { DEFAULT_DELIVERY_WINDOW, DELIVERY_WINDOWS } from "@/lib/gnanam/data";
 
-/** Fenêtre de livraison par défaut : la maquette n'offre pas encore de choix de créneau. */
-const DEFAULT_WINDOW = "8h – 11h";
 
 export const orderWithLines = {
   lines: {
@@ -14,11 +14,13 @@ export const orderWithLines = {
   customer: { select: { id: true, name: true } },
 } as const;
 
-/** Début de la journée en cours : la file opérationnelle ne porte que sur les commandes du jour. */
+/**
+ * Début de la journée en cours, à l'heure de Paris : la file opérationnelle ne
+ * porte que sur les commandes du jour. Le fuseau est explicite car les fonctions
+ * serverless tournent en UTC (voir lib/gnanam/timezone.ts).
+ */
 export function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return startOfParisDay();
 }
 
 export const ordersRouter = router({
@@ -31,12 +33,24 @@ export const ordersRouter = router({
     });
   }),
 
+  /** Historique de l'établissement connecté, du plus récent au plus ancien. */
+  mine: clientProcedure.query(async ({ ctx }) => {
+    if (!ctx.user.customerId) return [];
+    return ctx.prisma.order.findMany({
+      where: { customerId: ctx.user.customerId },
+      orderBy: { seq: "desc" },
+      take: 50,
+      include: orderWithLines,
+    });
+  }),
+
   create: clientProcedure
     .input(
       z.object({
         items: z
           .array(z.object({ productId: z.string(), qty: z.number().int().positive() }))
           .min(1, "Le panier est vide."),
+        windowLabel: z.enum(DELIVERY_WINDOWS).default(DEFAULT_DELIVERY_WINDOW),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -60,7 +74,7 @@ export const ordersRouter = router({
       return ctx.prisma.order.create({
         data: {
           customerId: customer.id,
-          windowLabel: DEFAULT_WINDOW,
+          windowLabel: input.windowLabel,
           address: customer.address,
           lines: {
             create: input.items.map((item, position) => ({

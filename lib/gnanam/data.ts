@@ -2,13 +2,13 @@ import type { Role, RoleId, ModuleId } from "./types";
 import { Category, Zone, OrderStatus, StockMoveKind } from "@/lib/generated/prisma/enums";
 
 export const ROLES: Record<RoleId, Role> = {
-  client: { label: "Client B2B", user: "Épicerie Mont Kailash", modules: ["commande"] },
+  client: { label: "Client B2B", user: "Épicerie Mont Kailash", modules: ["commande", "historique"] },
   entrepot: { label: "Entrepôt", user: "Préparateur — Rungis", modules: ["preparation", "stock", "livraison"] },
   securite: { label: "Sécurité", user: "Agent sécurité — sortie A", modules: ["securite"] },
   admin: {
     label: "Admin",
     user: "Direction GNANAM EXO",
-    modules: ["commande", "preparation", "securite", "livraison", "stock", "rapports"],
+    modules: ["commande", "historique", "preparation", "securite", "livraison", "stock", "references", "rapports"],
   },
 };
 
@@ -16,25 +16,40 @@ export const ROLE_IDS = Object.keys(ROLES) as RoleId[];
 
 export const MODULE_LABELS: Record<ModuleId, string> = {
   commande: "Commander",
+  historique: "Mes commandes",
   preparation: "Préparation",
   securite: "Contrôle sortie",
   livraison: "Livraison",
   stock: "Stock dépôt",
+  references: "Références",
   rapports: "Rapports",
 };
 
 /** Libellés compacts pour la barre de navigation mobile. */
 export const MODULE_SHORT_LABELS: Record<ModuleId, string> = {
   commande: "Commander",
+  historique: "Commandes",
   preparation: "Prépa",
   securite: "Sortie",
   livraison: "Livraison",
   stock: "Stock",
+  references: "Réfs",
   rapports: "Rapports",
 };
 
 /** Références mises en avant dans le catalogue, par SKU. */
 export const PROMO_SKUS = ["p1", "p9", "p15"];
+
+/**
+ * Créneaux de livraison proposés au client. La liste est fermée : le serveur
+ * refuse toute autre valeur, pour que les bons de préparation restent lisibles
+ * par l'entrepôt.
+ */
+export const DELIVERY_WINDOWS = ["6h – 8h", "6h – 9h", "8h – 11h", "9h – 12h", "14h – 17h"] as const;
+
+export type DeliveryWindow = (typeof DELIVERY_WINDOWS)[number];
+
+export const DEFAULT_DELIVERY_WINDOW: DeliveryWindow = "8h – 11h";
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   [Category.FruitsLegumes]: "Fruits & Légumes",

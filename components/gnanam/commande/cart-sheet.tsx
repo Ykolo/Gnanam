@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useGnanamStore } from "@/lib/gnanam/store";
 import { api } from "@/lib/trpc/client";
 import { eur } from "@/lib/gnanam/utils";
+import { DELIVERY_WINDOWS } from "@/lib/gnanam/data";
 import { ProductImage } from "@/components/gnanam/product-image";
 
 export function CartSheet() {
@@ -34,7 +35,7 @@ export function CartSheet() {
   const submit = () => {
     const items = cartEntries.map(([productId, qty]) => ({ productId, qty }));
     if (items.length === 0) return;
-    createOrder.mutate({ items });
+    createOrder.mutate({ items, windowLabel: state.deliveryWindow });
   };
 
   return (
@@ -105,6 +106,32 @@ export function CartSheet() {
               className="flex flex-col gap-2 border-t border-[var(--gnanam-border-soft)] bg-[var(--gnanam-cream-card)] px-5 pt-4"
               style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
             >
+              <div className="mb-1">
+                <div className="mb-1.5 text-[12.5px] font-bold text-[var(--gnanam-gray-600)]">
+                  Créneau de livraison souhaité
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {DELIVERY_WINDOWS.map((w) => {
+                    const active = state.deliveryWindow === w;
+                    return (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => dispatch({ type: "SET_DELIVERY_WINDOW", window: w })}
+                        aria-pressed={active}
+                        className={`min-h-9 rounded-full border-[1.5px] px-3 text-[12.5px] font-semibold whitespace-nowrap transition-colors ${
+                          active
+                            ? "border-[var(--gnanam-teal-900)] bg-[var(--gnanam-teal-900)] text-[var(--gnanam-cream-text)]"
+                            : "border-[var(--gnanam-border)] bg-white text-[#40565B]"
+                        }`}
+                      >
+                        {w}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="flex justify-between text-[13.5px] text-[var(--gnanam-gray-600)]">
                 <span>Sous-total HT</span>
                 <span className="font-bold text-[var(--gnanam-ink)]">{eur(cartTotal)}</span>

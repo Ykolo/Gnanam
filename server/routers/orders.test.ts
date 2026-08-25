@@ -26,6 +26,32 @@ describe("orders.create", () => {
     expect(result).toEqual({ id: "order-x", seq: 99 });
   });
 
+  it("enregistre le créneau de livraison choisi", async () => {
+    const customer = { findUniqueOrThrow: vi.fn().mockResolvedValue({ id: "cust-1", address: "1 rue Test" }) };
+    const product = { findMany: vi.fn().mockResolvedValue([{ id: "p1", priceCents: 1000 }]) };
+    const order = { create: vi.fn().mockResolvedValue({ id: "order-x", seq: 99 }) };
+    const ctx = fakeContext(fakeUser("client", { customerId: "cust-1" }), { customer, product, order });
+
+    await ordersRouter.createCaller(ctx).create({
+      items: [{ productId: "p1", qty: 1 }],
+      windowLabel: "14h – 17h",
+    });
+
+    expect(order.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ windowLabel: "14h – 17h" }) })
+    );
+  });
+
+  it("refuse un créneau hors de la liste proposée", async () => {
+    const ctx = fakeContext(fakeUser("client", { customerId: "cust-1" }), {});
+    await expect(
+      ordersRouter
+        .createCaller(ctx)
+        // @ts-expect-error — on vérifie précisément que le serveur rejette une valeur libre.
+        .create({ items: [{ productId: "p1", qty: 1 }], windowLabel: "3h – 4h du matin" })
+    ).rejects.toThrow();
+  });
+
   it("refuse un panier sans établissement rattaché", async () => {
     const ctx = fakeContext(fakeUser("client", { customerId: null }), {});
     await expect(

@@ -1,9 +1,18 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
+import type { DeliveryWindow } from "./data";
 
 export type CartMap = Record<string, number>;
 
 export type AuthTab = "login" | "register";
-export type ModuleId = "commande" | "preparation" | "securite" | "livraison" | "stock" | "rapports";
+export type ModuleId =
+  | "commande"
+  | "historique"
+  | "preparation"
+  | "securite"
+  | "livraison"
+  | "stock"
+  | "references"
+  | "rapports";
 export type PrepView = "list" | "pick";
 export type LivView = "list" | "detail";
 export type SecView = "list" | "check";
@@ -40,6 +49,8 @@ export interface AppState {
   cartOpen: boolean;
   orderSent: boolean;
   lastOrderId: string | null;
+  /** Créneau de livraison choisi pour la commande en cours de saisie. */
+  deliveryWindow: DeliveryWindow;
 
   prepView: PrepView;
   activeOrderId: string | null;

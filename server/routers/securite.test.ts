@@ -28,6 +28,29 @@ describe("securite.release", () => {
     );
   });
 
+  it("enregistre un visa non conforme accompagné de son motif", async () => {
+    const create = vi.fn().mockResolvedValue({});
+    await caller(create).release({ orderId: "order-1", conform: false, note: "1 carton manquant au caddie 2" });
+
+    expect(create).toHaveBeenCalledWith({
+      data: { orderId: "order-1", agentId: "agent-1", conform: false, note: "1 carton manquant au caddie 2" },
+    });
+  });
+
+  it("refuse un écart sans motif", async () => {
+    const create = vi.fn().mockResolvedValue({});
+    await expect(caller(create).release({ orderId: "order-1", conform: false })).rejects.toThrow();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("refuse un écart dont le motif est trop court", async () => {
+    const create = vi.fn().mockResolvedValue({});
+    await expect(
+      caller(create).release({ orderId: "order-1", conform: false, note: "ko" })
+    ).rejects.toThrow();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("refuse un second contrôle sur la même commande", async () => {
     const create = vi.fn().mockRejectedValue(new Error("Unique constraint failed"));
     await expect(caller(create).release({ orderId: "order-1" })).rejects.toBeInstanceOf(TRPCError);

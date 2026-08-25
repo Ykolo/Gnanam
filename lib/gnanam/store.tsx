@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useMemo, useReducer, type ReactNode } from "react";
 import type { AppState, ModuleId, PrepView, LivView, RepPeriod, StockFilter } from "./types";
+import { DEFAULT_DELIVERY_WINDOW, type DeliveryWindow } from "./data";
 
 /** Le module ouvert au démarrage dépend du profil : il est fourni par le serveur. */
 function makeInitialState(module: ModuleId): AppState {
@@ -16,6 +17,7 @@ const baseState: AppState = {
   cartOpen: false,
   orderSent: false,
   lastOrderId: null,
+  deliveryWindow: DEFAULT_DELIVERY_WINDOW,
 
   prepView: "list",
   activeOrderId: null,
@@ -45,6 +47,7 @@ type Action =
   | { type: "REMOVE_FROM_CART"; pid: string }
   | { type: "TOGGLE_CART" }
   | { type: "SET_CART_OPEN"; open: boolean }
+  | { type: "SET_DELIVERY_WINDOW"; window: DeliveryWindow }
   | { type: "ORDER_SUBMITTED"; orderLabel: string }
   | { type: "NEW_ORDER" }
   | { type: "SET_PREP_VIEW"; view: PrepView }
@@ -81,7 +84,11 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, cartOpen: !state.cartOpen };
     case "SET_CART_OPEN":
       return { ...state, cartOpen: action.open };
+    case "SET_DELIVERY_WINDOW":
+      return { ...state, deliveryWindow: action.window };
     case "ORDER_SUBMITTED":
+      // Le créneau n'est pas réinitialisé : l'écran de confirmation l'affiche, et
+      // un client recommande le plus souvent sur la même tranche horaire.
       return { ...state, orderSent: true, lastOrderId: action.orderLabel, cart: {}, cartOpen: false };
     case "NEW_ORDER":
       return { ...state, orderSent: false };
