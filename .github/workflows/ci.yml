@@ -44,3 +44,61 @@ jobs:
 
       - name: Tests unitaires
         run: bun run test
+
+  e2e:
+    name: Parcours end-to-end
+    runs-on: ubuntu-latest
+    # Inutile de lancer un navigateur si les types ou les tests unitaires cassent.
+    needs: qualite
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gnanam
+          POSTGRES_PASSWORD: gnanam
+          POSTGRES_DB: gnanam_exo
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Base jetable du runner : les migrations et le seed y tournent en entier,
+      # contrairement aux tests unitaires qui mockent Prisma.
+      DATABASE_URL: postgresql://gnanam:gnanam@localhost:5432/gnanam_exo
+      DATABASE_URL_UNPOOLED: postgresql://gnanam:gnanam@localhost:5432/gnanam_exo
+      BETTER_AUTH_SECRET: secret-de-test-sans-valeur-en-production
+      BETTER_AUTH_URL: http://localhost:3210
+      TZ: UTC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Installer les dépendances
+        run: bun install --frozen-lockfile
+
+      - name: Préparer la base
+        run: |
+          bunx prisma migrate deploy
+          bun run db:seed
+
+      - name: Installer le navigateur
+        run: bunx playwright install --with-deps chromium
+
+      - name: Tests end-to-end
+        run: bun run test:e2e
+
+      - name: Conserver le rapport en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

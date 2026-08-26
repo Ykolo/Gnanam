@@ -39,6 +39,7 @@ export function LivraisonList({ orders, isLoading }: { orders: Order[]; isLoadin
           return (
             <div
               key={o.id}
+              data-testid={`commande-${o.seq}`}
               className="flex items-start gap-3.5 rounded-2xl bg-white p-4.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]"
             >
               <div

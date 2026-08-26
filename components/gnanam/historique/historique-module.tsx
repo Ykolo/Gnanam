@@ -28,7 +28,10 @@ function OrderCard({ order }: { order: Order }) {
   const gaps = order.lines.filter((l) => l.status === LineStatus.partial || l.status === LineStatus.missing);
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_rgba(14,58,66,.05)]">
+    <div
+      data-testid={`commande-${order.seq}`}
+      className="overflow-hidden rounded-2xl bg-white shadow-[0_2px_10px_rgba(14,58,66,.05)]"
+    >
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}

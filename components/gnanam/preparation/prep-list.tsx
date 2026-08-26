@@ -38,6 +38,7 @@ export function PrepList({ orders, isLoading }: { orders: Order[]; isLoading: bo
           return (
             <div
               key={o.id}
+              data-testid={`commande-${o.seq}`}
               className="flex flex-col gap-3 rounded-2xl bg-white p-4.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]"
             >
               <div className="flex flex-wrap items-center gap-3">

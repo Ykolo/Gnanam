@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 export default defineConfig({
@@ -11,6 +11,9 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     css: false,
+    // `e2e/` appartient à Playwright : sans cette exclusion, Vitest ramasserait
+    // ses specs et échouerait faute de navigateur.
+    exclude: [...configDefaults.exclude, "e2e/**"],
     env: {
       // Suffit à construire les clients Prisma/Better Auth au chargement des
       // modules serveur : les tests injectent leur propre `ctx.prisma` mocké
