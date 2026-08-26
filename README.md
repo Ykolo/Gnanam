@@ -119,8 +119,10 @@ bun run dev          # http://localhost:3000
 | `bun run build` | Build de production (génère Prisma, applique les migrations, compile) |
 | `bun run start` | Sert le build de production |
 | `bun run lint` | ESLint |
-| `bun run test` | Suite Vitest (73 tests) |
+| `bun run test` | Tests unitaires Vitest (128 tests) |
 | `bun run test:watch` | Vitest en mode watch |
+| `bun run test:e2e` | Parcours end-to-end Playwright (8 tests) |
+| `bun run test:e2e:ui` | Playwright en mode interactif |
 | `bun run db:migrate` | Crée et applique une migration |
 | `bun run db:seed` | Recharge les données de démonstration |
 | `bun run db:studio` | Prisma Studio (exploration de la base) |
@@ -176,11 +178,32 @@ Variables à configurer côté Vercel : `DATABASE_URL`, `DATABASE_URL_UNPOOLED`,
 
 ---
 
+## Tests et intégration continue
+
+Deux niveaux, lancés automatiquement sur chaque push et chaque pull request
+(voir [.github/workflows/ci.yml](.github/workflows/ci.yml)) :
+
+- **128 tests unitaires** — fonctions pures, reducer d'interface et logique des
+  neuf routeurs tRPC, avec Prisma mocké. Le runner tourne en `TZ=UTC`,
+  volontairement décalé de Paris, pour attraper les régressions de fuseau.
+- **8 parcours end-to-end** — l'application réelle contre une vraie base, dont le
+  cycle de vie complet d'une commande à travers les quatre profils. En CI,
+  l'application est compilée puis servie en mode production sur un Postgres
+  jetable ; `next dev` recompile à chaque route et fait dépasser les délais.
+
+Chaque test end-to-end crée sa propre commande et la suit par son numéro : un
+seed déjà entamé ne les fait pas échouer.
+
+⚠️ Le serveur des tests end-to-end désarme la limitation de débit de Better
+Auth (`AUTH_RATE_LIMIT_DISABLED`), sans quoi la suite serait bloquée dès la
+quatrième connexion. Ce drapeau est posé par `playwright.config.ts` seul — il
+ne doit jamais être défini sur un environnement Vercel.
+
+---
+
 ## Limites connues
 
-- **Pas de tests end-to-end** ni de tests de composants : la suite couvre les
-  fonctions pures, le reducer et la logique des routeurs tRPC.
-- **Pas d'intégration continue.** Lint, typecheck et tests ne tournent qu'en local.
+- **Pas de tests de composants** : Testing Library ne sert qu'au reducer.
 - **Clients et comptes ne s'administrent pas depuis l'application** — seul le
   catalogue produits le fait. Ils se gèrent via le seed ou Prisma Studio.
 - **L'admin ne peut pas commander** : le module *Commander* lui est visible, mais
