@@ -92,6 +92,11 @@ export function AuthScreen() {
       setPending(false);
       return setError(err instanceof Error ? err.message : "Rattachement de l'établissement impossible.");
     }
+
+    // La session est mise en cache dans un cookie pendant une minute : sans ce
+    // rafraîchissement forcé, le `customerId` qu'on vient d'écrire resterait
+    // invisible et la première commande serait refusée.
+    await authClient.getSession({ query: { disableCookieCache: true } });
     router.refresh();
   }
 

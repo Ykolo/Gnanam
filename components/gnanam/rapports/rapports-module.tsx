@@ -117,7 +117,11 @@ export function RapportsModule() {
         <>
           <div className="mt-4.5 grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(190px,1fr))]">
             {report.kpis.map((k) => (
-              <div key={k.label} className="rounded-2xl bg-white p-4 px-4.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]">
+              <div
+                key={k.label}
+                data-testid={`kpi-${k.label}`}
+                className="rounded-2xl bg-white p-4 px-4.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]"
+              >
                 <div className="text-[11.5px] font-extrabold tracking-wide uppercase text-[var(--gnanam-gray-400)]">
                   {k.label}
                 </div>

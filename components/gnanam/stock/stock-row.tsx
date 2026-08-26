@@ -10,12 +10,23 @@ import { LEVEL_STYLES } from "@/lib/gnanam/stock";
 
 type StockRowData = RouterOutputs["stock"]["list"][number];
 
-function Stat({ label, value, color }: { label: string; value: number; color?: string }) {
+function Stat({
+  label,
+  value,
+  color,
+  testId,
+}: {
+  label: string;
+  value: number;
+  color?: string;
+  testId: string;
+}) {
   return (
     <div className="min-w-[74px] flex-1 rounded-[10px] bg-[var(--gnanam-cream-card)] px-2.5 py-2 text-center">
       <div className="text-[10.5px] font-bold tracking-wide text-[var(--gnanam-gray-400)] uppercase">{label}</div>
       <motion.div
         key={value}
+        data-testid={testId}
         initial={{ opacity: 0, y: -3 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
@@ -48,7 +59,10 @@ export function StockRow({ row }: { row: StockRowData }) {
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-[var(--gnanam-border-softer)] bg-white p-3.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]">
+    <div
+      data-testid={`stock-${row.sku}`}
+      className="flex flex-col gap-3 rounded-2xl border border-[var(--gnanam-border-softer)] bg-white p-3.5 shadow-[0_2px_10px_rgba(14,58,66,.05)]"
+    >
       <div className="flex flex-wrap items-start gap-2.5">
         <div className="min-w-[150px] flex-1">
           <div className="text-[14.5px] leading-tight font-bold">{row.name}</div>
@@ -71,9 +85,9 @@ export function StockRow({ row }: { row: StockRowData }) {
       </div>
 
       <div className="flex gap-2">
-        <Stat label="Physique" value={row.quantity} />
-        <Stat label="Réservé" value={row.reserved} color="var(--gnanam-gray-600)" />
-        <Stat label="Disponible" value={row.available} color={level.fg} />
+        <Stat label="Physique" value={row.quantity} testId="stat-physique" />
+        <Stat label="Réservé" value={row.reserved} color="var(--gnanam-gray-600)" testId="stat-reserve" />
+        <Stat label="Disponible" value={row.available} color={level.fg} testId="stat-disponible" />
       </div>
 
       <div>
