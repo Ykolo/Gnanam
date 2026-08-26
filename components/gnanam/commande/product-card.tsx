@@ -56,6 +56,7 @@ export function ProductCard({ product }: { product: Product }) {
             >
               <button
                 onClick={() => dispatch({ type: "SUB_FROM_CART", pid: product.id })}
+                aria-label={`Retirer un ${product.name} du panier`}
                 className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border-[1.5px] border-[var(--gnanam-border)] bg-white font-bold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-cream)]"
               >
                 <Minus size={16} />
@@ -63,6 +64,7 @@ export function ProductCard({ product }: { product: Product }) {
               <div className="flex-1 text-center text-[15px] font-extrabold">{qty}</div>
               <button
                 onClick={() => dispatch({ type: "ADD_TO_CART", pid: product.id })}
+                aria-label={`Ajouter un ${product.name} au panier`}
                 className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] bg-[var(--gnanam-gold)] font-extrabold text-[var(--gnanam-teal-900)] hover:bg-[var(--gnanam-gold-light)]"
               >
                 <Plus size={16} />
