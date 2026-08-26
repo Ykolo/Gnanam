@@ -49,3 +49,10 @@ next-env.d.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Skills d'agent récupérées depuis des dépôts tiers : outillage de
+# l'environnement de développement, pas du code applicatif.
+# `.claude/launch.json` reste versionné, lui : il décrit comment lancer l'app.
+/.agents/
+/.claude/skills/
+/skills-lock.json
