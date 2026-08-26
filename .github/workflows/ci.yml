@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Un push qui en suit un autre annule la vérification devenue caduque.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualite:
+    name: Lint, types et tests
+    runs-on: ubuntu-latest
+
+    env:
+      # Le client Prisma est généré, pas versionné : `prisma generate` a besoin
+      # d'une URL *définie* mais n'ouvre aucune connexion. Les tests unitaires
+      # mockent `ctx.prisma` et ne touchent donc jamais de vraie base non plus.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      # Le fuseau du runner est volontairement décalé de Paris : c'est ce qui
+      # aurait fait tomber les tests de dates avant lib/gnanam/timezone.ts.
+      TZ: UTC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Installer les dépendances
+        # `postinstall` déclenche `prisma generate`, indispensable avant le
+        # typecheck puisque les types du client en dépendent.
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Tests unitaires
+        run: bun run test
