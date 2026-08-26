@@ -89,6 +89,11 @@ jobs:
           bunx prisma migrate deploy
           bun run db:seed
 
+      # Compilée ici plutôt que servie par `next dev` : le mode développement
+      # recompile à chaque route visitée et fait dépasser le délai des tests.
+      - name: Construire l'application
+        run: bun run build
+
       - name: Installer le navigateur
         run: bunx playwright install --with-deps chromium
 

@@ -31,6 +31,21 @@ export function resolveTrustedOrigins(env: NodeJS.ProcessEnv = process.env): str
 }
 
 /**
+ * Better Auth limite la connexion à trois tentatives par fenêtre courte dès que
+ * l'application tourne en production. C'est la bonne valeur face à un humain,
+ * et elle reste donc active partout — sauf pour le serveur jetable des tests
+ * end-to-end, qui enchaîne les connexions de quatre profils en quelques
+ * secondes et se ferait bloquer au quatrième.
+ *
+ * Le drapeau n'est posé que par `playwright.config.ts`. Il ne doit jamais être
+ * défini sur un environnement Vercel : ce serait rouvrir la porte au bourrage
+ * de mots de passe.
+ */
+export function isRateLimitDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.AUTH_RATE_LIMIT_DISABLED === "1";
+}
+
+/**
  * Authentification e-mail + mot de passe, sans vérification d'adresse : les comptes
  * créés à l'inscription sont immédiatement actifs. Le rôle porté par `user.role`
  * décide des modules accessibles ; il n'est jamais modifiable depuis le client.
@@ -39,6 +54,7 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   baseURL: resolveBaseURL(),
   trustedOrigins: resolveTrustedOrigins(),
+  rateLimit: { enabled: !isRateLimitDisabled() },
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,

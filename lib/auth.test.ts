@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveBaseURL, resolveTrustedOrigins } from "./auth";
+import { isRateLimitDisabled, resolveBaseURL, resolveTrustedOrigins } from "./auth";
 
 function env(values: Record<string, string | undefined>): NodeJS.ProcessEnv {
   return values as NodeJS.ProcessEnv;
@@ -24,6 +24,20 @@ describe("resolveBaseURL", () => {
 
   it("renvoie undefined hors Vercel et sans variable — Better Auth déduit alors depuis la requête", () => {
     expect(resolveBaseURL(env({}))).toBeUndefined();
+  });
+});
+
+describe("isRateLimitDisabled", () => {
+  it("garde la limitation active par défaut", () => {
+    expect(isRateLimitDisabled(env({}))).toBe(false);
+  });
+
+  it("n'accepte que la valeur explicite « 1 »", () => {
+    expect(isRateLimitDisabled(env({ AUTH_RATE_LIMIT_DISABLED: "1" }))).toBe(true);
+    // Une valeur approchante ne doit pas suffire à désarmer la protection.
+    for (const valeur of ["true", "yes", "0", "", "on"]) {
+      expect(isRateLimitDisabled(env({ AUTH_RATE_LIMIT_DISABLED: valeur }))).toBe(false);
+    }
   });
 });
 
